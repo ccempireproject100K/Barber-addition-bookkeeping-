@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 const today = () => businessToday();
 const METHODS: PayMethod[] = ["cash", "card", "bank", "other"];
 type Line = InvoiceLineIn & { kind: "service" | "product"; product_id: string | null };
+type FormState = Omit<InvoiceIn, "lines"> & { lines: Line[] };
 const blankLine: Line = { description: "", quantity: 1, unit_price: 0, kind: "service", product_id: null };
 
 export default function Invoices() {
@@ -25,7 +26,7 @@ export default function Invoices() {
   const [open, setOpen] = useState(false);
   const [payFor, setPayFor] = useState<Invoice | null>(null);
   const [refundFor, setRefundFor] = useState<Invoice | null>(null);
-  const [f, setF] = useState<InvoiceIn & { lines: Line[] }>({ client_name: "", date: today(), due_date: null, lines: [{ ...blankLine }], barber_id: null, notes: "", discount_amount: 0, tax_rate: 0, tip_amount: 0 });
+  const [f, setF] = useState<FormState>({ client_name: "", date: today(), due_date: null, lines: [{ ...blankLine }], barber_id: null, notes: "", discount_amount: 0, tax_rate: 0, tip_amount: 0 });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => apiGet<Invoice[]>("/invoices") });
 
   const refresh = () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); queryClient.invalidateQueries({ queryKey: ["dashboard"] }); };

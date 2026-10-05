@@ -185,3 +185,19 @@ async def mirror_cogs(p: Principal, mv: dict) -> None:
         await post_entry(p, mv["created_at"][:10], memo, signed, source="cogs", ref=f"mv:{mv['id']}:cogs")
     except ValueError:
         pass
+
+
+async def mirror_inventory_inflow(p: Principal, mv: dict) -> None:
+    """Book the inventory asset for stock INFLOWS that have no paid-purchase transaction behind them
+    (opening stock, restock with record_expense=false, positive count adjustments). Paid restocks
+    instead ride the capitalized expense txn (mirror_txn DR 1200 / CR cash), so those are skipped here
+    via the linked_transaction_id guard in post_movement. Contra = Opening Balance Equity (3900)."""
+    amount = abs(mv.get("quantity") or 0) * (mv.get("unit_cost") or 0)
+    if not amount:
+        return
+    memo = f"Stock received · {mv.get('product_name', '')}".strip(" ·")
+    try:
+        await post_entry(p, mv["created_at"][:10], memo, [("1200", amount), ("3900", -amount)],
+                         source="inventory", ref=f"mv:{mv['id']}:inv")
+    except ValueError:
+        pass

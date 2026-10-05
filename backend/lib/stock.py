@@ -217,7 +217,10 @@ async def post_movement(
         "op_id": op_id, "compensates": compensates, "created_at": at,
     }
     await Scoped("movements", p).insert(doc)
-    from lib.bookkeeping import mirror_cogs  # local import avoids a circular dependency
+    from lib.bookkeeping import mirror_cogs, mirror_inventory_inflow  # local import avoids a circular dependency
     await mirror_cogs(p, doc)
+    # Inflows with no paid-purchase txn behind them must still book the inventory asset.
+    if type_ in ("restock", "adjustment") and qty > 0 and linked_transaction_id is None:
+        await mirror_inventory_inflow(p, doc)
     doc.pop("tenant_id", None)
     return doc

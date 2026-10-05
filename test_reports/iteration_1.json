@@ -1,0 +1,55 @@
+{
+  "summary": "Backend + frontend tested for Barber's Ledger double-entry bookkeeping. 14/15 backend pytest cases pass. UI loads for Books (9 tabs), Expenses, Invoices, Dashboard, Money/P&L, Products, Quick sell, Procurement, Cash close, Audit, Settings. Trial balance balanced ($1,304.55 D=C), Balance sheet balanced, A/R aging reconciled, full sales flow (invoice create -> issue -> partial pay with processing fee -> final pay -> paid), stock decrements, service-only invoices do NOT touch stock, refund (contra-revenue) reduces net income with no phantom A/R, void of issued service invoice removes from A/R aging and keeps TB balanced, cross-tenant isolation returns 404 for owner2 on owner1's invoices, manual journal rejects unbalanced entries. Expenses + vendors flow books to Rent (6100) in the journal and Income Statement. Only failing check: Inventory valuation reconcile — total valuation (sum of qoh*avg_cost) does NOT match the 1200 Inventory account balance (seeing $342.30 vs $142.30 from the journal in current Shop One data).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/books/inventory-valuation",
+        "issue": "reconciled=false on Shop One: sum(product.qoh * unit_cost)=$342.30 but Inventory account 1200 journal balance=$142.30. GL for 1200 shows only two restock postings (DR $80 and DR $100) and three COGS credits, yet the product quantity_on_hand = 64 implies many more inflows that are not reflected in the 1200 account. This points to stock inflows (likely restock paths with record_expense=false, procurement completions, or pre-existing fixtures/seed data) that bypass the DR 1200 posting. The UI shows this correctly as an 'Out of balance' badge on the Inventory valuation tab.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "/api/inventory/stock/restock",
+        "issue": "When record_expense=false, restock increases quantity_on_hand but does NOT post DR 1200 Inventory (because the DR 1200 CR cash entry rides on the capitalized expense txn via mirror_txn). Reconciliation requires that EVERY stock inflow book the inventory asset. Consider posting a dedicated inventory journal entry on each restock (DR 1200, CR Opening Balance Equity 3900) when record_expense=false, independent of the cash-side txn."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Books > Inventory valuation",
+        "issue": "Shows 'Out of balance' badge — confirms the backend reconciliation bug above. UI itself is correct; the data is out of balance.",
+        "selector": "[data-testid=\"reconcile-badge\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bookkeeping_flow.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Investigate why Inventory account 1200 is not debited for every stock inflow (restock without expense, procurement receipts, serial checkouts, legacy seeded stock). Add a backfill or guarantee a DR 1200 posting on every post_movement where qty increases.",
+    "On restock with record_expense=false, still post DR 1200 / CR 3900 (Opening Balance Equity) so inventory valuation reconciles to the journal.",
+    "Consider a one-off reconciliation migration that reads product history and adjusts 1200 opening balance so the invariant total_value == 1200 balance holds for existing tenants."
+  ],
+  "critical_code_review_comments": [
+    "lib/stock.post_movement calls mirror_cogs ONLY for sale/use (CR 1200). Inflows (restock/return) rely on lib.money.create_txn + mirror_txn to DR 1200 via the capitalized expense path — if that path is skipped (record_expense=false, or capitalized=false), the inventory asset is NOT debited, breaking the fundamental invariant total_inventory_value == 1200 balance.",
+    "bookkeeping.inventory_valuation.reconciled check tolerates a 1-cent delta but doesn't surface WHY it fails. Consider returning a 'variance' field so the UI can show the diff.",
+    "routers.money._issue_invoice posts the issue journal entry BEFORE updating invoice status with an optimistic-concurrency check; if the update fails with 409 the journal entry is already posted (orphan) — consider reversing it on 409 for consistency.",
+    "routers.money.refund_invoice books contra-revenue 4910 AND also calls create_txn('expense', 'Retail refunds', ...) which mirrors into the journal via mirror_txn as a 6xxx operating expense — risk of double-counting the refund on P&L. Verify mirror_txn skips invoice-source txns (it does: `if txn.get('source')=='invoice': return`), so OK."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bookkeeping_flow.py"
+  ],
+  "success_rate": {"backend": "93% (14/15)", "frontend": "100% (all pages load, all badges/testids correct)"},
+  "test_credentials": "owner1@test.com / Passw0rd!  and  owner2@test.com / Passw0rd!",
+  "seed_data_creation": "Fixtures created a few TEST_Client invoices, TEST_Vendor_* vendors, and TEST_rent expenses on Shop One. Products were restocked by +20 units (Pomade).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression test file is /app/backend/tests/test_bookkeeping_flow.py. Run with: REACT_APP_BACKEND_URL=https://barber-booking-sys-1.preview.emergentagent.com python -m pytest /app/backend/tests/test_bookkeeping_flow.py -o addopts='' -v. Only test_inventory_valuation_reconciled fails — this is a real finding, NOT a test defect. UI tab testids are shorter than the request specified (books-tab-trial, books-tab-balance, books-tab-aging, books-tab-inventory, books-tab-journal, books-tab-summary, books-tab-pnl, books-tab-gl, books-tab-accounts). Invoices route is /invoices (not /money/invoices).",
+  "rca of the issue": "Inventory valuation reconciliation failure RCA — The ledger invariant 'sum(qoh*unit_cost) == journal account 1200 balance' holds only if every stock movement debits/credits 1200 with the same amount it changes the product valuation. In this codebase: (a) sales/uses post via mirror_cogs() which correctly CR 1200 by mv.cogs; (b) inflows (restock/return) do NOT post anything via mirror_cogs — they rely on mirror_txn() of a capitalized expense transaction created by routers/movements.restock(). That path is skipped when record_expense=false, when a serial/warranty checkout path doesn't create a txn, or if any seed/legacy stock exists that was inserted directly without a txn. Reproduction: on a fresh tenant with inventory, call POST /api/inventory/stock/restock {record_expense:false, quantity:10, unit_cost:5} — product qoh goes to +10 (value +$50) but journal has no DR 1200 entry, so GET /api/books/inventory-valuation returns reconciled:false. Mitigation: in lib/stock.post_movement, when the movement is an inflow (restock/return/positive adjust), post a direct journal entry DR 1200 CR 3900 (or CR 2000 if a vendor bill is pending) for qty*unit_cost, independent of the cash transaction. Alternatively, make routers/movements.restock always create the capitalized txn (ignore record_expense for the ledger side and only let record_expense control whether an expense category also shows on cash P&L)."
+}

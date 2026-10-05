@@ -5,6 +5,7 @@ as DR expense / CR cash). Inventory purchases are NOT expenses here — they are
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from lib.audit import audit
 from lib.auth import Principal, require
@@ -85,3 +86,42 @@ async def delete_expense(expense_id: str, p: Principal = Depends(require("txn:ad
     from routers.ledger import reverse_txn
     await reverse_txn(p, expense_id, f"expense removed by {p.name}", ("manual",))
     return {"ok": True}
+
+
+class ReceiptIn(BaseModel):
+    image: str = Field(min_length=10, max_length=8_000_000)  # data URL or base64
+
+
+@router.post("/expenses/scan-receipt")
+async def scan_receipt(body: ReceiptIn, p: Principal = Depends(require("txn:write"))):
+    """Read a receipt photo and pre-fill an expense (owner still confirms). Uses the AI add-on."""
+    import importlib
+    import json
+    import os
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(503, "Receipt scanning needs the AI add-on. Add an AI key in settings to enable it.")
+    try:
+        sdk = importlib.import_module("emergentintegrations.llm.chat")
+    except ImportError:
+        raise HTTPException(503, "AI integration is not installed on this server.")
+    b64 = body.image.split(",", 1)[1] if body.image.startswith("data:") else body.image
+    prompt = ("Read this expense receipt. Reply with ONLY compact JSON: "
+              '{"vendor":string,"date":"YYYY-MM-DD","amount":number,"tax":number,'
+              f'"category":one of {EXPENSE_CATEGORIES},"description":string}}. Use the grand total for amount.')
+    try:
+        chat = sdk.LlmChat(api_key=key, session_id=f"receipt-{p.tenant_id}", system_message="You extract structured data from receipts.").with_model("openai", os.environ.get("AI_MODEL", "gpt-5-mini"))
+        msg = sdk.UserMessage(text=prompt, file_contents=[sdk.ImageContent(image_base64=b64)])
+        raw = await chat.send_message(msg)
+    except Exception as exc:
+        raise HTTPException(502, f"Could not read the receipt: {type(exc).__name__}")
+    text = raw if isinstance(raw, str) else getattr(raw, "content", str(raw))
+    try:
+        start, end = text.find("{"), text.rfind("}")
+        data = json.loads(text[start:end + 1])
+    except (ValueError, json.JSONDecodeError):
+        raise HTTPException(502, "Receipt read but could not be parsed — enter it manually.")
+    cat = data.get("category")
+    return {"vendor": data.get("vendor", ""), "date": data.get("date", ""),
+            "amount": data.get("amount", 0), "tax": data.get("tax", 0),
+            "category": cat if cat in EXPENSE_CATEGORIES else "Other", "description": data.get("description", "")}

@@ -1,0 +1,19 @@
+crons:
+  - name: daily-digest
+    description: "Emails each shop owner today's low-stock, expiring-lot and pending-approval alerts at 8am UTC"
+    cron: "0 8 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/daily-digest"
+    method: POST
+    enabled: true
+  - name: weekly-ai
+    description: "Monday 7am UTC: emails owners the AI briefing and drafts this week's order for approval"
+    cron: "0 7 * * 1"
+    endpoint: "{{BASE_URL}}/api/cron/weekly-ai"
+    method: POST
+    enabled: true
+  - name: recurring-expenses
+    description: "Daily 6am UTC: posts any recurring operating expense (rent, booth rent, subscriptions) whose day has arrived"
+    cron: "0 6 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/recurring"
+    method: POST
+    enabled: true

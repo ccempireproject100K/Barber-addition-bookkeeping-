@@ -320,3 +320,10 @@ export interface Vendor { id: string; name: string; contact_name: string; email:
 export interface VendorIn { name: string; contact_name: string; email: string; phone: string; notes: string }
 export interface ExpenseIn { date: string; category: string; amount: number; description: string; vendor_id: string | null; payment_method: PayMethod; receipt_url: string | null; receipt_name: string }
 export interface ExpenseRow { id: string; date: string; category: string; amount: number; description: string; payment_method: string; vendor_id: string | null; vendor_name: string | null; receipt_url: string | null; receipt_name: string; reversed_by?: string | null; reversal_of?: string | null }
+
+// ---------- books_ops / bills / recurring ----------
+export interface BooksOverview { currency: string; cash_on_hand: number; accounts_receivable: number; inventory_value: number; accounts_payable: number; tax_owed: number; tips_owed: number; income_mtd: number; expenses_mtd: number; net_profit_mtd: number; top_expenses: { name: string; amount: number }[]; closed_through: string | null; health: { trial_balanced: boolean; inventory_reconciled: boolean; ar_reconciled: boolean } }
+export interface Bill { id: string; vendor_id: string | null; vendor_name: string | null; date: string; due_date: string | null; category: string; amount: number; amount_paid: number; balance: number; is_inventory: boolean; description: string; status: string; payments: { id: string; date: string; amount: number; method: string }[]; created_at: string }
+export interface Recurring { id: string; name: string; category: string; amount: number; payment_method: PayMethod; vendor_id: string | null; day_of_month: number; active: boolean; last_run: string | null; created_at: string }
+export interface BankTxn { id: string; account: string; date: string; description: string; amount: number; status: string; matched_entry: string | null; created_at: string }
+export interface ReceiptScan { vendor: string; date: string; amount: number; tax: number; category: string; description: string }

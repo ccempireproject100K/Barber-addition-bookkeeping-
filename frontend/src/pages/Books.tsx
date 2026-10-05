@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, Scale, FileSpreadsheet, BookOpen, Receipt, Boxes, TrendingUp, ListTree } from "lucide-react";
+import { Download, Scale, FileSpreadsheet, BookOpen, Receipt, Boxes, TrendingUp, ListTree, LayoutDashboard, Landmark, Lock } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
 import { businessToday, errMsg, fmtMoney } from "@/lib/format";
 import type {
-  Account, ARAging, BalanceSheet, GeneralLedger, IncomeStatement, InventoryValuation, JournalEntryView,
-  SalesSummary, TrialBalance,
+  Account, ARAging, BalanceSheet, BankTxn, BooksOverview, GeneralLedger, IncomeStatement, InventoryValuation,
+  JournalEntryView, SalesSummary, TrialBalance,
 } from "@/lib/types";
 import { PageHeader, Panel, Pill, Stat } from "@/components/Common";
+import { queryClient } from "@/lib/queryClient";
+import { toast as toastFn } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const monthStart = () => businessToday().slice(0, 8) + "01";
 
 const TABS = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "summary", label: "Sales summary", icon: TrendingUp },
   { id: "pnl", label: "Income statement", icon: FileSpreadsheet },
   { id: "balance", label: "Balance sheet", icon: Scale },
@@ -22,6 +25,7 @@ const TABS = [
   { id: "gl", label: "General ledger", icon: BookOpen },
   { id: "aging", label: "A/R aging", icon: Receipt },
   { id: "inventory", label: "Inventory valuation", icon: Boxes },
+  { id: "bank", label: "Bank import", icon: Landmark },
   { id: "accounts", label: "Chart of accounts", icon: ListTree },
   { id: "journal", label: "Journal", icon: BookOpen },
 ] as const;
@@ -48,7 +52,7 @@ function Money({ v, bold }: { v: number; bold?: boolean }) {
 }
 
 export default function Books() {
-  const [tab, setTab] = useState<TabId>("summary");
+  const [tab, setTab] = useState<TabId>("overview");
   const [start, setStart] = useState(monthStart());
   const [end, setEnd] = useState(businessToday());
   const [account, setAccount] = useState("1100");
@@ -79,6 +83,7 @@ export default function Books() {
         </div>
       )}
 
+      {tab === "overview" && <OverviewView />}
       {tab === "summary" && <SalesSummaryView start={start} end={end} />}
       {tab === "pnl" && <IncomeStatementView start={start} end={end} />}
       {tab === "balance" && <BalanceSheetView />}
@@ -86,6 +91,7 @@ export default function Books() {
       {tab === "gl" && <GeneralLedgerView account={account} start={start} end={end} />}
       {tab === "aging" && <AgingView />}
       {tab === "inventory" && <InventoryView />}
+      {tab === "bank" && <BankView />}
       {tab === "accounts" && <AccountsView />}
       {tab === "journal" && <JournalView start={start} end={end} />}
     </div>
@@ -314,6 +320,103 @@ function JournalView({ start, end }: { start: string; end: string }) {
         </Panel>
       ))}
       {data.length === 0 && <p className="text-sm text-muted-foreground">No journal entries in this range.</p>}
+    </div>
+  );
+}
+
+function HealthChip({ ok, label }: { ok: boolean; label: string }) {
+  return <Pill tone={ok ? "success" : "danger"}>{label} {ok ? "✓" : "⚠"}</Pill>;
+}
+
+function OverviewView() {
+  const { data: o } = useQuery({ queryKey: ["books-overview"], queryFn: () => apiGet<BooksOverview>("/books/overview"), refetchInterval: 30000 });
+  const [busy, setBusy] = useState("");
+  const act = async (path: string, body: unknown, label: string) => {
+    setBusy(label);
+    try { await apiPost(path, body); toastFn.success(`${label} done`); queryClient.invalidateQueries({ queryKey: ["books-overview"] }); }
+    catch (e) { toastFn.error(errMsg(e)); } finally { setBusy(""); }
+  };
+  if (!o) return null;
+  const remit = () => { const v = prompt(`Remit sales tax — amount owed ${fmtMoney(o.tax_owed)}`, String(o.tax_owed)); if (v) act("/books/tax/remit", { amount: Number(v), method: "bank" }, "Tax remittance"); };
+  const payout = () => { const v = prompt(`Pay out tips — owed ${fmtMoney(o.tips_owed)}`, String(o.tips_owed)); if (v) act("/books/tips/payout", { amount: Number(v), method: "cash" }, "Tips payout"); };
+  const equity = (kind: "contribution" | "draw") => { const v = prompt(`Owner ${kind} amount`); if (v) act("/books/equity", { kind, amount: Number(v), method: "bank" }, `Owner ${kind}`); };
+  const close = () => { const v = prompt("Close the books through (YYYY-MM-DD) — no entries allowed on/before this date", businessToday()); if (v) act("/books/close", { through: v }, "Books closed"); };
+  return (
+    <div className="space-y-5" data-testid="overview">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Cash on hand" value={fmtMoney(o.cash_on_hand)} testId="ov-cash" />
+        <Stat label="Net profit (MTD)" value={fmtMoney(o.net_profit_mtd)} testId="ov-net" tone={o.net_profit_mtd < 0 ? "text-red-500" : ""} />
+        <Stat label="A/R outstanding" value={fmtMoney(o.accounts_receivable)} testId="ov-ar" />
+        <Stat label="A/P owed" value={fmtMoney(o.accounts_payable)} testId="ov-ap" />
+        <Stat label="Sales tax owed" value={fmtMoney(o.tax_owed)} testId="ov-tax" />
+        <Stat label="Tips owed" value={fmtMoney(o.tips_owed)} testId="ov-tips" />
+      </div>
+      <Panel className="flex flex-wrap items-center gap-2 p-4">
+        <span className="label-caps mr-2">Books health</span>
+        <HealthChip ok={o.health.trial_balanced} label="Trial balance" />
+        <HealthChip ok={o.health.inventory_reconciled} label="Inventory" />
+        <HealthChip ok={o.health.ar_reconciled} label="A/R" />
+        {o.closed_through && <Pill tone="neutral"><Lock className="size-3" /> closed through {o.closed_through}</Pill>}
+      </Panel>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Panel className="p-4">
+          <div className="label-caps mb-3">Owner actions</div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={remit} data-testid="ov-remit-tax">Remit sales tax</Button>
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={payout} data-testid="ov-payout-tips">Pay out tips</Button>
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={() => equity("contribution")} data-testid="ov-contribute">Owner contribution</Button>
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={() => equity("draw")} data-testid="ov-draw">Owner draw</Button>
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={close} data-testid="ov-close"><Lock className="size-3" /> Close period</Button>
+          </div>
+        </Panel>
+        <Panel className="p-4">
+          <div className="label-caps mb-3">Top expenses this month</div>
+          {o.top_expenses.length === 0 ? <p className="text-sm text-muted-foreground">No expenses yet.</p> : (
+            <div className="space-y-1.5 text-sm">
+              {o.top_expenses.map((e, i) => <div key={i} className="flex justify-between"><span>{e.name}</span><span className="font-mono tabular-nums">{fmtMoney(e.amount)}</span></div>)}
+            </div>
+          )}
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+function BankView() {
+  const { data = [], refetch } = useQuery({ queryKey: ["bank"], queryFn: () => apiGet<BankTxn[]>("/books/bank") });
+  const [csv, setCsv] = useState("");
+  const onFile = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => setCsv(String(r.result)); r.readAsText(file); };
+  const doImport = async () => { try { const r = await apiPost<{ imported: number; duplicates: number }>("/books/bank/import", { account: "1010", csv }); toastFn.success(`Imported ${r.imported} (skipped ${r.duplicates} duplicates)`); setCsv(""); refetch(); } catch (e) { toastFn.error(errMsg(e)); } };
+  const resolve = async (id: string, action: string, category = "") => { try { await apiPost(`/books/bank/${id}/resolve`, { action, category }); refetch(); } catch (e) { toastFn.error(errMsg(e)); } };
+  return (
+    <div className="space-y-4">
+      <Panel className="p-4">
+        <div className="label-caps mb-2">Import a bank statement (CSV with date, description, amount)</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e.target.files?.[0])} className="max-w-xs" data-testid="bank-file" />
+          <Button size="sm" disabled={!csv} onClick={doImport} data-testid="bank-import-btn">Import & match</Button>
+        </div>
+      </Panel>
+      <Panel className="overflow-hidden">
+        <table className="w-full text-sm" data-testid="bank-table">
+          <thead><tr className="border-b border-border text-left text-muted-foreground"><th className="px-4 py-2 font-medium">Date</th><th className="px-4 py-2 font-medium">Description</th><th className="px-4 py-2 text-right font-medium">Amount</th><th className="px-4 py-2 font-medium">Status</th><th className="px-4 py-2 font-medium">Reconcile</th></tr></thead>
+          <tbody>
+            {data.map((b) => (
+              <tr key={b.id} className="border-b border-border">
+                <td className="px-4 py-2 whitespace-nowrap">{b.date}</td><td className="px-4 py-2">{b.description}</td>
+                <td className="px-4 py-2 text-right font-mono">{fmtMoney(b.amount)}</td>
+                <td className="px-4 py-2"><Pill tone={b.status === "matched" || b.status === "reconciled" ? "success" : b.status === "ignored" ? "neutral" : "warning"}>{b.status}</Pill></td>
+                <td className="px-4 py-2">{b.status === "unmatched" && (
+                  <div className="flex gap-1">
+                    <Button size="xs" variant="outline" onClick={() => resolve(b.id, b.amount < 0 ? "expense" : "income")} data-testid={`bank-book-${b.id}`}>Book as {b.amount < 0 ? "expense" : "income"}</Button>
+                    <Button size="xs" variant="ghost" onClick={() => resolve(b.id, "ignore")}>Ignore</Button>
+                  </div>)}</td>
+              </tr>
+            ))}
+            {data.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-muted-foreground">Import a statement to reconcile against your books.</td></tr>}
+          </tbody>
+        </table>
+      </Panel>
     </div>
   );
 }

@@ -187,6 +187,30 @@ async def mirror_cogs(p: Principal, mv: dict) -> None:
         pass
 
 
+async def account_balances(p: Principal, end: str = "", start: str = "") -> dict[str, int]:
+    """Net balance (debit-credit, in cents) per account code over an optional date window."""
+    f: dict = {"tenant_id": p.tenant_id}
+    if start or end:
+        f["date"] = {**({"$gte": start} if start else {}), **({"$lte": end} if end else {})}
+    bal: dict[str, int] = {}
+    async for e in db.journal_entries.find(f, {"_id": 0, "lines": 1}):
+        for ln in e["lines"]:
+            bal[ln["account"]] = bal.get(ln["account"], 0) + ln["debit_cents"] - ln["credit_cents"]
+    return bal
+
+
+async def closed_through(p: Principal) -> str | None:
+    doc = await db.book_closes.find_one({"tenant_id": p.tenant_id}, {"_id": 0, "through": 1})
+    return doc["through"] if doc else None
+
+
+async def assert_open(p: Principal, date: str) -> None:
+    from fastapi import HTTPException
+    through = await closed_through(p)
+    if through and date <= through:
+        raise HTTPException(400, f"The books are closed through {through}. Reopen the period or use a later date.")
+
+
 async def mirror_inventory_inflow(p: Principal, mv: dict) -> None:
     """Book the inventory asset for stock INFLOWS that have no paid-purchase transaction behind them
     (opening stock, restock with record_expense=false, positive count adjustments). Paid restocks

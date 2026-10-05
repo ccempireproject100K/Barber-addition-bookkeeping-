@@ -19,6 +19,7 @@ import Scanner from "@/components/Scanner";
 import ProductDialog from "@/components/ProductDialog";
 import MusicPlayer from "@/components/MusicPlayer";
 import Assistant from "@/components/Assistant";
+import QuickAdd from "@/components/QuickAdd";
 
 interface NavDef { to: string; label: string; icon: React.ComponentType<{ className?: string }>; id: string; inv?: boolean; badge?: boolean; approvals?: boolean; perm?: string }
 const SECTIONS: { title: string; items: NavDef[] }[] = [
@@ -163,6 +164,7 @@ export default function AppLayout() {
           {inv && (
             <Button size="sm" onClick={() => setScanOpen(true)} data-testid="header-scan-button"><ScanLine /> Scan</Button>
           )}
+          {me?.permissions.includes("txn:write") && <QuickAdd />}
           {me?.ai_enabled && me.permissions.includes("report:read") && <Assistant />}
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" onClick={() => { toggleTheme(); force((x) => x + 1); }} data-testid="theme-toggle-button" aria-label="Toggle theme">

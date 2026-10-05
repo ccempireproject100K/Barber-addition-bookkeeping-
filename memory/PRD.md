@@ -62,3 +62,21 @@ idempotency + op recovery, Decimal money helpers.
 P1: estimates→invoice, recurring invoice drafts, payment reminders (owner-approved), CSV bank import
 + reconciliation, accrual Accounts Payable for purchases, accountant period-close/export.
 P2: low-stock reorder automation already exists; chair/booth-rent reporting breakdown; backup/restore wiring.
+
+## Iteration 2 — owner-experience enhancements (2026-10-05)
+All 10 proposed enhancements implemented and backend-verified (ledger stays balanced throughout):
+- **Owner Overview dashboard** (`/books` first tab): cash on hand, net profit MTD, A/R, A/P, sales-tax owed, tips owed, top expenses, and a **books-health strip** (trial balance / inventory / A/R reconcile chips) with drill-downs. `GET /api/books/overview`.
+- **Sales-tax center**: `GET /books/tax-summary`, `POST /books/tax/remit` (DR Sales Tax Payable, CR cash) — clears the liability.
+- **Tips payout**: `GET /books/tips-summary`, `POST /books/tips/payout` (DR Tips Payable, CR cash).
+- **Owner equity**: `POST /books/equity` (contribution: DR cash CR Owner's Equity; draw: reverse).
+- **Month-end close/lock**: `POST /books/close` + `/reopen`; `lib/bookkeeping.assert_open` blocks dated postings in closed periods (tax/tips/equity/bills).
+- **Bank CSV import + match + reconcile**: `POST /books/bank/import` (auto-match to same-date/amount journal lines, dedupe), `GET /books/bank`, `POST /books/bank/{id}/resolve` (ignore / book income / book expense).
+- **Vendor bills / Accounts Payable** (`routers/bills.py`): `POST /bills` (DR expense or Inventory, CR A/P), `POST /bills/{id}/pay` (DR A/P CR cash), `GET /bills`, `/bills/ap-summary`.
+- **Snap-a-receipt → AI expense prefill**: `POST /expenses/scan-receipt` (emergentintegrations vision, gpt-5-mini) — graceful 503 without EMERGENT_LLM_KEY. Frontend "Scan a receipt" input in the New Expense dialog.
+- **Recurring expenses** (`routers/recurring.py`): monthly templates auto-posted by platform cron `POST /api/cron/recurring` (`.emergent/crons.yml`, daily 06:00 UTC) + "Post now" manual run.
+- **Quick-add + Simple mode**: header **Quick add** (plain "Money in / Money out") posts income/expense that book straight to the journal — owner-friendly input that hides debits/credits.
+
+Frontend: Books page gained Overview + Bank-import tabs and owner-action controls; Expenses page gained Receipt scan, Vendor bills (A/P) and Recurring sections; `components/QuickAdd.tsx` mounted in the header. TypeScript compiles clean, oxlint 0 errors, bookkeeping suite 15/15.
+
+### Caveat
+A vendor bill marked **is_inventory** debits the Inventory account; it should correspond to a stock receipt, otherwise the Inventory account will exceed product valuation (expected). Receipt-scan requires an AI key (add in settings) to function.

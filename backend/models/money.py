@@ -64,6 +64,36 @@ class InvoiceIn(BaseModel):
     tip_amount: float = Field(default=0, ge=0)
 
 
+EstimateStatus = Literal["draft", "sent", "accepted", "declined", "converted"]
+
+
+class Estimate(BaseModel):
+    currency: str = "USD"
+    id: str
+    number: str
+    client_name: str
+    date: str
+    valid_until: str | None = None
+    status: EstimateStatus
+    lines: list[InvoiceLine]
+    subtotal: float = 0
+    discount_amount: float = 0
+    tax_rate: float = 0
+    tax_amount: float = 0
+    tip_amount: float = 0
+    total: float = 0
+    barber_id: str | None = None
+    barber_name: str | None = None
+    notes: str = ""
+    converted_invoice_id: str | None = None
+    converted_invoice_number: str | None = None
+    created_at: str
+
+
+class EstimateStatusIn(BaseModel):
+    status: EstimateStatus
+
+
 class Payment(BaseModel):
     id: str
     date: str

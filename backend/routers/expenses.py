@@ -94,28 +94,33 @@ class ReceiptIn(BaseModel):
 
 @router.post("/expenses/scan-receipt")
 async def scan_receipt(body: ReceiptIn, p: Principal = Depends(require("txn:write"))):
-    """Read a receipt photo and pre-fill an expense (owner still confirms). Uses the AI add-on."""
-    import importlib
+    """Read a receipt photo and pre-fill an expense (owner still confirms). Uses a standard
+    OpenAI-compatible vision API with your own OPENAI_API_KEY — no third-party platform lock-in.
+    Returns 503 until a key is configured, so the rest of the app works without it."""
     import json
     import os
-    key = os.environ.get("EMERGENT_LLM_KEY")
+    import httpx
+    key = os.environ.get("OPENAI_API_KEY")
     if not key:
-        raise HTTPException(503, "Receipt scanning needs the AI add-on. Add an AI key in settings to enable it.")
-    try:
-        sdk = importlib.import_module("emergentintegrations.llm.chat")
-    except ImportError:
-        raise HTTPException(503, "AI integration is not installed on this server.")
-    b64 = body.image.split(",", 1)[1] if body.image.startswith("data:") else body.image
-    prompt = ("Read this expense receipt. Reply with ONLY compact JSON: "
+        raise HTTPException(503, "Receipt scanning is off. Add OPENAI_API_KEY to the backend .env to enable it.")
+    base = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = os.environ.get("RECEIPT_AI_MODEL", "gpt-4o-mini")
+    data_url = body.image if body.image.startswith("data:") else f"data:image/jpeg;base64,{body.image}"
+    prompt = ("Read this expense receipt and reply with ONLY compact JSON: "
               '{"vendor":string,"date":"YYYY-MM-DD","amount":number,"tax":number,'
               f'"category":one of {EXPENSE_CATEGORIES},"description":string}}. Use the grand total for amount.')
+    payload = {"model": model, "max_tokens": 400, "messages": [{"role": "user", "content": [
+        {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": data_url}}]}]}
     try:
-        chat = sdk.LlmChat(api_key=key, session_id=f"receipt-{p.tenant_id}", system_message="You extract structured data from receipts.").with_model("openai", os.environ.get("AI_MODEL", "gpt-5-mini"))
-        msg = sdk.UserMessage(text=prompt, file_contents=[sdk.ImageContent(image_base64=b64)])
-        raw = await chat.send_message(msg)
+        async with httpx.AsyncClient(timeout=45) as client:
+            r = await client.post(f"{base}/chat/completions", headers={"Authorization": f"Bearer {key}"}, json=payload)
+        if r.status_code != 200:
+            raise HTTPException(502, f"Vision API error ({r.status_code})")
+        text = r.json()["choices"][0]["message"]["content"]
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(502, f"Could not read the receipt: {type(exc).__name__}")
-    text = raw if isinstance(raw, str) else getattr(raw, "content", str(raw))
     try:
         start, end = text.find("{"), text.rfind("}")
         data = json.loads(text[start:end + 1])

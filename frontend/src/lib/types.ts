@@ -327,3 +327,6 @@ export interface Bill { id: string; vendor_id: string | null; vendor_name: strin
 export interface Recurring { id: string; name: string; category: string; amount: number; payment_method: PayMethod; vendor_id: string | null; day_of_month: number; active: boolean; last_run: string | null; created_at: string }
 export interface BankTxn { id: string; account: string; date: string; description: string; amount: number; status: string; matched_entry: string | null; created_at: string }
 export interface ReceiptScan { vendor: string; date: string; amount: number; tax: number; category: string; description: string }
+
+export type EstimateStatus = "draft" | "sent" | "accepted" | "declined" | "converted";
+export interface Estimate { id: string; number: string; client_name: string; date: string; valid_until: string | null; status: EstimateStatus; lines: InvoiceLine[]; subtotal: number; discount_amount: number; tax_rate: number; tax_amount: number; tip_amount: number; total: number; barber_id: string | null; barber_name: string | null; notes: string; converted_invoice_id: string | null; converted_invoice_number: string | null; created_at: string }

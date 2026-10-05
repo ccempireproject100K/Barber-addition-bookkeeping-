@@ -66,6 +66,11 @@ INDEXES: dict[str, list[IndexModel]] = {
     "suppliers": [IndexModel([("tenant_id", ASCENDING), ("id", ASCENDING)], name="tenant_id_id", unique=True)],
     "accounts": [IndexModel([("tenant_id", ASCENDING), ("code", ASCENDING)], name="tenant_code_u", unique=True)],
     "vendors": [IndexModel([("tenant_id", ASCENDING), ("id", ASCENDING)], name="tenant_id_id", unique=True)],
+    "estimates": [IndexModel([("tenant_id", ASCENDING), ("id", ASCENDING)], name="tenant_id_id", unique=True)],
+    "bills": [IndexModel([("tenant_id", ASCENDING), ("id", ASCENDING)], name="tenant_id_id", unique=True)],
+    "recurring": [IndexModel([("tenant_id", ASCENDING), ("id", ASCENDING)], name="tenant_id_id", unique=True)],
+    "bank_txns": [IndexModel([("tenant_id", ASCENDING), ("id", ASCENDING)], name="tenant_id_id", unique=True),
+                  IndexModel([("tenant_id", ASCENDING), ("dedupe", ASCENDING)], name="tenant_dedupe")],
     "journal_entries": [
         IndexModel([("tenant_id", ASCENDING), ("ref", ASCENDING)], name="tenant_ref_u", unique=True),
         IndexModel([("tenant_id", ASCENDING), ("date", ASCENDING)], name="tenant_date"),

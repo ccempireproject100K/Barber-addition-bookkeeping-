@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Wallet, FileText, Package, ShoppingBag, ArrowLeftRight, BarChart3, Truck, Users, Settings as SettingsIcon,
-  LogOut, Menu, Sun, Moon, Scissors, ScanLine, ClipboardCheck, Barcode, Contact, Gamepad2, Banknote, ScrollText, Scale, ReceiptText,
+  LogOut, Menu, Sun, Moon, Scissors, ScanLine, ClipboardCheck, Barcode, Contact, Gamepad2, Banknote, ScrollText, Scale, ReceiptText, FileCheck2,
 } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { ApiError, apiGet } from "@/lib/api";
@@ -27,6 +27,7 @@ const SECTIONS: { title: string; items: NavDef[] }[] = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, id: "dashboard" },
     { to: "/money", label: "Money & P&L", icon: Wallet, id: "money", perm: "txn:read" },
     { to: "/invoices", label: "Invoices", icon: FileText, id: "invoices", perm: "invoice:read" },
+    { to: "/estimates", label: "Estimates", icon: FileCheck2, id: "estimates", perm: "invoice:read" },
     { to: "/expenses", label: "Expenses", icon: ReceiptText, id: "expenses", perm: "txn:read" },
     { to: "/books", label: "Books & reports", icon: Scale, id: "books", perm: "report:read" },
     { to: "/cash-close", label: "Cash close", icon: Banknote, id: "cash-close", perm: "cashclose:read|cashclose:write" },

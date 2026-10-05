@@ -9,6 +9,7 @@ import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Money from "@/pages/Money";
 import Invoices from "@/pages/Invoices";
+import Estimates from "@/pages/Estimates";
 import Books from "@/pages/Books";
 import Expenses from "@/pages/Expenses";
 import Products from "@/pages/Products";
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/money" element={<Money />} />
           <Route path="/invoices" element={<Invoices />} />
+          <Route path="/estimates" element={<Estimates />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/books" element={<Books />} />
           <Route path="/inventory" element={gated(<Products />)} />

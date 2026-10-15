@@ -20,7 +20,7 @@ from lib.ops import recover_ops
 from lib.security import SecurityMiddleware
 from routers import billing, cash, ledger
 from routers import ai, auth, clients, cron, payments, po_links, source, insights, inv_reports, money, movements, products, purchase_orders, suppliers
-from routers import bookkeeping, expenses, books_ops, bills, recurring, estimates
+from routers import bookkeeping, expenses, books_ops, bills, recurring, estimates, recurring_invoices, reminders, backup
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,9 @@ api_router.include_router(books_ops.router)
 api_router.include_router(bills.router)
 api_router.include_router(recurring.router)
 api_router.include_router(estimates.router)
+api_router.include_router(recurring_invoices.router)
+api_router.include_router(reminders.router)
+api_router.include_router(backup.router)
 
 # Inventory add-on: every route sits behind the per-workspace module flag (404 when off).
 inventory_router = APIRouter(prefix="/inventory", dependencies=[Depends(require_inventory)])

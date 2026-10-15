@@ -29,6 +29,8 @@ CHART: list[tuple[str, str, str, str]] = [
     ("1200", "Inventory", "asset", "debit"),
     ("2000", "Accounts Payable", "liability", "credit"),
     ("2100", "Sales Tax Payable", "liability", "credit"),
+    ("2110", "Payroll Tax Withholding Payable", "liability", "credit"),
+    ("2120", "Payroll Deductions Payable", "liability", "credit"),
     ("2200", "Tips Payable", "liability", "credit"),
     ("3000", "Owner's Equity", "equity", "credit"),
     ("3900", "Opening Balance Equity", "equity", "credit"),
@@ -41,6 +43,7 @@ CHART: list[tuple[str, str, str, str]] = [
     ("5010", "Supplies Used", "expense", "debit"),
     ("6000", "Operating Expenses", "expense", "debit"),
     ("6100", "Rent", "expense", "debit"),
+    ("6110", "Payroll — Wages & Salaries", "expense", "debit"),
     ("6200", "Payment Processing Fees", "expense", "debit"),
     ("6300", "Chair / Booth Rent", "expense", "debit"),
 ]

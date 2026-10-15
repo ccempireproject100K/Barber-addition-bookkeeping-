@@ -35,10 +35,10 @@ ADMIN_PERMS = STAFF_PERMS | {
     "product:write", "product:delete", "stock:adjust", "supplier:write", "supplier:delete", "po:delete",
     "team:write", "report:read", "settings:write", "po:approve", "txn:adjust", "audit:read", "export:read",
     "cashclose:read", "cashclose:review", "billing:write", "ops:recover", "time:approve",
-    "payroll:read", "payroll:write",
+    "payroll:read", "payroll:write", "budget:read", "budget:write",
 }
 # Accountant: review + reconcile + export, no shop settings, no stock/sales, no client PII.
-ACCOUNTANT_PERMS = {"txn:read", "invoice:read", "report:read", "audit:read", "export:read", "cashclose:read", "team:read", "product:read", "time:read", "time:approve", "payroll:read"}
+ACCOUNTANT_PERMS = {"txn:read", "invoice:read", "report:read", "audit:read", "export:read", "cashclose:read", "team:read", "product:read", "time:read", "time:approve", "payroll:read", "budget:read"}
 # Bookkeeper = accountant who may also post corrections (reversals / adjusting entries). Still no settings.
 BOOKKEEPER_PERMS = ACCOUNTANT_PERMS | {"txn:adjust"}
 ROLE_PERMS: dict[str, set[str]] = {"admin": ADMIN_PERMS, "staff": STAFF_PERMS, "accountant": ACCOUNTANT_PERMS,

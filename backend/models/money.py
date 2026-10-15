@@ -215,3 +215,4 @@ class WorkspaceSettings(InternationalSettings):  # inventory_enabled / ai_enable
     ai_enabled: bool = False
     po_approval_limit: float = Field(default=0, ge=0)  # 0 = off
     weekly_ai_email: bool = True
+    edition: str = Field(default="general", pattern=r"^(general|service-shop)$")

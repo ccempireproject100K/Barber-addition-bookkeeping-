@@ -1,4 +1,4 @@
-"""Clients: profiles, purchase history, rule-based sales suggestions; discount codes (game rewards) applied at checkout."""
+"""Clients: profiles, purchase history, rule-based sales suggestions; discount codes applied at checkout."""
 
 import uuid
 from collections import Counter, defaultdict
@@ -142,7 +142,7 @@ async def profile(id: str, p: Principal = Depends(require("client:read"))):
         favorites=fav, suggestions=sugg)
 
 
-# ---------- discount codes (issued by the waiting-room game) ----------
+# ---------- discount codes ----------
 class DiscountCheck(BaseModel):
     code: str
     pct: float

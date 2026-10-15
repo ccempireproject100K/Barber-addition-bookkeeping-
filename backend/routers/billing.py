@@ -92,7 +92,7 @@ async def billing_checkout(body: BillingCheckoutIn, p: Principal = Depends(requi
         s = stripe.checkout.Session.create(
             mode="subscription", client_reference_id=p.tenant_id,
             line_items=[{"price_data": {"currency": "usd", "unit_amount": PRICE_CENTS, "recurring": {"interval": "month"},
-                                        "product_data": {"name": "Barber's Ledger Pro add-ons (inventory + AI)"}}, "quantity": 1}],
+                                        "product_data": {"name": "Ledger Pro add-ons (inventory + AI)"}}, "quantity": 1}],
             subscription_data={"metadata": {"tenant_id": p.tenant_id}}, metadata={"tenant_id": p.tenant_id, "kind": "subscription"},
             success_url=f"{origin}/settings?billing=success&session_id={{CHECKOUT_SESSION_ID}}", cancel_url=f"{origin}/settings?billing=cancel")
     except stripe.error.StripeError as e:

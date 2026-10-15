@@ -24,19 +24,23 @@ DEFAULT_SETTINGS = {
     "ai_enabled": False,
     "po_approval_limit": 0,
     "weekly_ai_email": True,
+    "edition": "general",
 }
 
 STAFF_PERMS = {
     "product:read", "stock:write", "supplier:read", "po:read", "po:write", "insight:read", "team:read",
     "txn:read", "txn:write", "invoice:read", "invoice:write", "client:read", "settings:read", "cashclose:write",
+    "time:read", "time:write",
 }
 ADMIN_PERMS = STAFF_PERMS | {
     "product:write", "product:delete", "stock:adjust", "supplier:write", "supplier:delete", "po:delete",
     "team:write", "report:read", "settings:write", "po:approve", "txn:adjust", "audit:read", "export:read",
-    "cashclose:read", "cashclose:review", "billing:write", "ops:recover",
+    "cashclose:read", "cashclose:review", "billing:write", "ops:recover", "time:approve",
+    "payroll:read", "payroll:write", "budget:read", "budget:write",
+    "tax:read", "tax:write",
 }
 # Accountant: review + reconcile + export, no shop settings, no stock/sales, no client PII.
-ACCOUNTANT_PERMS = {"txn:read", "invoice:read", "report:read", "audit:read", "export:read", "cashclose:read", "team:read", "product:read"}
+ACCOUNTANT_PERMS = {"txn:read", "invoice:read", "report:read", "audit:read", "export:read", "cashclose:read", "team:read", "product:read", "time:read", "time:approve", "payroll:read", "budget:read", "tax:read"}
 # Bookkeeper = accountant who may also post corrections (reversals / adjusting entries). Still no settings.
 BOOKKEEPER_PERMS = ACCOUNTANT_PERMS | {"txn:adjust"}
 ROLE_PERMS: dict[str, set[str]] = {"admin": ADMIN_PERMS, "staff": STAFF_PERMS, "accountant": ACCOUNTANT_PERMS,
@@ -54,6 +58,7 @@ class Principal(BaseModel):
     settings: dict
     access: str = "none"
     entitlements: dict = {}
+    totp_enabled: bool = False
 
 
 def hash_password(pw: str) -> str:
@@ -103,7 +108,7 @@ async def principal_for_user(user: dict) -> Principal | None:
     settings["ai_enabled"] = bool(settings.get("ai_enabled")) and ent["ai"]
     return Principal(user_id=user["id"], tenant_id=user["tenant_id"], tenant_name=tenant["name"], role=user["role"],
                      name=user["name"], email=user["email"], settings=settings, access=tenant.get("access", "none"),
-                     entitlements=ent)
+                     entitlements=ent, totp_enabled=bool(user.get("totp_enabled")))
 
 
 async def get_principal(request: Request) -> Principal:

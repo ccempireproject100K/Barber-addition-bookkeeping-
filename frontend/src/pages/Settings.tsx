@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CreditCard, Mail, Package } from "lucide-react";
+import { CreditCard, LogOut, Mail, Package } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg, fmtDateTime } from "@/lib/format";
 import { invalidateInventory } from "@/lib/invalidate";
-import type { BillingCheckoutIn, BillingCheckoutOut, BillingStatus, BillingSyncIn, OutboxEmail, WorkspaceSettings } from "@/lib/types";
+import type { BackupMeta, BillingCheckoutIn, BillingCheckoutOut, BillingStatus, BillingSyncIn, OutboxEmail, WorkspaceSettings } from "@/lib/types";
 import { can, useMe } from "@/hooks/useMe";
 import { Field, PageHeader, Panel, Pill } from "@/components/Common";
 import { Button } from "@/components/ui/button";
@@ -103,6 +103,174 @@ function BillingPanel({ admin }: { admin: boolean }) {
   );
 }
 
+function BackupPanel({ admin }: { admin: boolean }) {
+  const qc = useQueryClient();
+  const { data: backups = [] } = useQuery({ queryKey: ["backups"], queryFn: () => apiGet<BackupMeta[]>("/backups"), enabled: admin });
+  const [busy, setBusy] = useState(false);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["backups"] });
+  const create = async () => {
+    setBusy(true);
+    try { const b = await apiPost<BackupMeta>("/backup"); toast.success(`Backup saved — ${b.documents} records`); refresh(); }
+    catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+  const restore = async (b: BackupMeta) => {
+    if (!window.confirm(`Restore the backup from ${fmtDateTime(b.created_at)}? ALL current workspace data will be replaced with the backup. This can't be undone.`)) return;
+    if (!window.confirm("Really restore? Type of confirmation #2: click OK to replace all data.")) return;
+    try { const r = await apiPost<{ restored_documents: number }>("/backup/" + b.id + "/restore"); toast.success(`Restored ${r.restored_documents} records`); invalidateInventory(); }
+    catch (e) { toast.error(errMsg(e)); }
+  };
+  if (!admin) return null;
+  const kb = (n: number) => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+  return (
+    <Panel className="p-4 md:p-5" data-testid="settings-backup-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Backup & restore</h3>
+          <p className="text-xs text-muted-foreground">Snapshots of every record in this workspace — clients, invoices, ledger, inventory and settings. Restoring replaces current data.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => void create()} disabled={busy} data-testid="backup-create-button">{busy ? "Backing up…" : "Create backup"}</Button>
+      </div>
+      {backups.length > 0 && (
+        <table className="mt-3 w-full text-sm" data-testid="backups-table">
+          <thead><tr className="border-b border-border text-left text-muted-foreground"><th className="px-2 py-2 font-medium">Created</th><th className="px-2 py-2 font-medium">By</th><th className="px-2 py-2 text-right font-medium">Records</th><th className="px-2 py-2 text-right font-medium">Size</th><th className="px-2 py-2"></th></tr></thead>
+          <tbody>
+            {backups.map((b) => (
+              <tr key={b.id} className="border-b border-border last:border-0" data-testid={`backup-row-${b.id}`}>
+                <td className="px-2 py-2 text-xs">{fmtDateTime(b.created_at)}</td>
+                <td className="px-2 py-2">{b.created_by}</td>
+                <td className="px-2 py-2 text-right font-mono">{b.documents}</td>
+                <td className="px-2 py-2 text-right font-mono">{kb(b.size_bytes)}</td>
+                <td className="px-2 py-2 text-right">
+                  <span className="flex justify-end gap-1">
+                    <a href={`/api/backup/${b.id}/download`} data-testid={`backup-download-${b.id}`}><Button size="xs" variant="outline" tabIndex={-1}>Download</Button></a>
+                    <Button size="xs" variant="destructive" onClick={() => void restore(b)} data-testid={`backup-restore-${b.id}`}>Restore</Button>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
+  );
+}
+
+function TwoFactorPanel() {
+  const qc = useQueryClient();
+  const { data: me } = useMe();
+  const [secret, setSecret] = useState<string | null>(null);
+  const [otpauthUrl, setOtpauthUrl] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [confirmDisable, setConfirmDisable] = useState(false);
+
+  const start = async () => {
+    try {
+      const r = await apiPost<{ secret: string; otpauth_url: string }>("/auth/2fa/setup", {});
+      setSecret(r.secret); setOtpauthUrl(r.otpauth_url); setCode("");
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const enable = async () => {
+    try {
+      const r = await apiPost<{ backup_codes: string[] }>("/auth/2fa/enable", { code });
+      setBackupCodes(r.backup_codes); setSecret(null);
+      toast.success("Two-factor auth enabled");
+      void qc.invalidateQueries({ queryKey: ["me"] });
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const disable = async (pw: string) => {
+    try {
+      await apiPost("/auth/2fa/disable", { password: pw });
+      setConfirmDisable(false); setPassword("");
+      toast.success("Two-factor auth disabled");
+      void qc.invalidateQueries({ queryKey: ["me"] });
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const regen = async () => {
+    try {
+      const r = await apiPost<{ backup_codes: string[] }>("/auth/2fa/backup-codes/regenerate", { password });
+      setBackupCodes(r.backup_codes); setPassword("");
+      toast.success("New backup codes generated — old ones no longer work");
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+
+  return (
+    <Panel className="p-4 md:p-5" data-testid="settings-2fa-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Two-factor authentication</h3>
+          <p className="text-xs text-muted-foreground">Authenticator-app codes at sign-in, plus one-time backup codes.</p>
+        </div>
+        {me?.totp_enabled
+          ? <Pill tone="success" testId="2fa-status">Enabled</Pill>
+          : <Pill tone="neutral" testId="2fa-status">Off</Pill>}
+      </div>
+
+      {!me?.totp_enabled && !secret && (
+        <Button size="sm" className="mt-3" onClick={() => void start()} data-testid="2fa-start">Set up authenticator app</Button>
+      )}
+      {!me?.totp_enabled && secret && (
+        <div className="mt-3 space-y-2 rounded-lg bg-muted/50 p-3" data-testid="2fa-setup">
+          <p className="text-sm">Add this key to your authenticator app (Google Authenticator, 1Password, etc.):</p>
+          <code className="block select-all rounded bg-background p-2 font-mono text-sm tracking-widest" data-testid="2fa-secret">{secret}</code>
+          <p className="text-xs text-muted-foreground">Then enter the 6-digit code it shows:</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Code"><Input value={code} onChange={(e) => setCode(e.target.value)} className="w-36 font-mono text-center text-lg tracking-[0.2em]" inputMode="numeric" data-testid="2fa-enable-code" /></Field>
+            <Button size="sm" onClick={() => void enable()} disabled={code.trim().length < 6} data-testid="2fa-enable">Enable</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSecret(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+      {backupCodes && (
+        <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3" data-testid="2fa-backup-codes">
+          <p className="text-sm font-medium">Backup codes — save these now, each works once:</p>
+          <div className="mt-1 grid grid-cols-2 gap-1 font-mono text-sm">{backupCodes.map((c) => <span key={c}>{c}</span>)}</div>
+          <Button size="xs" variant="outline" className="mt-2" onClick={() => setBackupCodes(null)}>I've saved them</Button>
+        </div>
+      )}
+      {me?.totp_enabled && (
+        <div className="mt-3 space-y-2">
+          {!confirmDisable ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Password (for new backup codes)"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-44" data-testid="2fa-regen-password" /></Field>
+              <Button size="sm" variant="outline" onClick={() => void regen()} disabled={!password} data-testid="2fa-regen-codes">New backup codes</Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmDisable(true)} data-testid="2fa-disable-start">Disable 2FA</Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Confirm with password"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-44" data-testid="2fa-disable-password" /></Field>
+              <Button size="sm" variant="destructive" onClick={() => void disable(password)} data-testid="2fa-disable">Disable</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setConfirmDisable(false); setPassword(""); }}>Keep enabled</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function SessionsPanel() {  const qc = useQueryClient();
+  const signOutAll = async () => {
+    if (!window.confirm("Sign out on every device? You'll need to sign in again here.")) return;
+    try { await apiPost("/auth/logout-all"); }
+    catch (e) { toast.error(errMsg(e)); return; }
+    qc.clear();
+    window.location.assign("/login");
+  };
+  return (
+    <Panel className="p-4 md:p-5" data-testid="settings-sessions-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Sessions</h3>
+          <p className="text-xs text-muted-foreground">Left signed in somewhere else? End every session at once.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => void signOutAll()} data-testid="signout-all-button"><LogOut className="size-3" /> Sign out all devices</Button>
+      </div>
+    </Panel>
+  );
+}
+
 const fmtMoneyLocal = (v: number) => `${v.toFixed(2)} USD`;
 
 export default function Settings() {
@@ -130,10 +298,29 @@ export default function Settings() {
     <div className="space-y-4">
       <PageHeader title="Settings" subtitle="Workspace and add-on configuration." />
       <BillingPanel admin={admin} />
+      <TwoFactorPanel />
+      <SessionsPanel />
+      <BackupPanel admin={admin} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(f); }}>
         <Panel className="p-4 md:p-5">
           <InternationalFields value={f} disabled={!admin} currencyLocked onChange={(key, value) => setF({ ...f, [key]: value })} />
           <Field label="Shop name"><Input disabled={!admin} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="max-w-sm" data-testid="settings-name-input" /></Field>
+        </Panel>
+        <Panel className="p-4 md:p-5" data-testid="settings-edition-panel">
+          <h3 className="text-base font-semibold">Edition</h3>
+          <p className="text-xs text-muted-foreground">Packaging for your kind of business. Same books underneath — the service-shop edition adds a setup checklist and shop-first wording.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {(["general", "service-shop"] as const).map((ed) => (
+              <button key={ed} type="button" disabled={!admin} onClick={() => setF({ ...f, edition: ed })}
+                data-testid={`settings-edition-${ed}`}
+                className={`rounded-lg border p-3 text-left ${f.edition === ed ? "border-primary ring-1 ring-primary" : "border-border"} ${admin ? "hover:bg-muted/50" : "opacity-70"}`}>
+                <div className="font-medium">{ed === "general" ? "General business" : "Service shop"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {ed === "general" ? "The standard books: invoices, bills, inventory, reports." : "Barbershops, salons, spas — booth rent, tips, and QuickSell front and center, plus a guided setup checklist."}
+                </div>
+              </button>
+            ))}
+          </div>
         </Panel>
         <Panel className="p-4 md:p-5" data-testid="settings-inventory-panel">
           <div className="flex items-start justify-between gap-4">

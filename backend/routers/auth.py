@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from lib.auth import (ROLE_PERMS, Principal, clear_session, get_principal, hash_password, principal_for_user, require,
                       set_session, verify_password, DEFAULT_SETTINGS)
@@ -37,7 +38,8 @@ def _me(p: Principal) -> Me:
               ai_enabled=bool(p.settings.get("ai_enabled")) and bool(os.environ.get("EMERGENT_LLM_KEY")),
               access="paid" if p.access != "demo" and any(p.entitlements.values()) else p.access,  # type: ignore[arg-type]
               entitlements=p.entitlements, currency=p.settings.get("currency", "USD"),
-              timezone=p.settings.get("timezone", "UTC"), locale=p.settings.get("locale", "en-US"))
+              timezone=p.settings.get("timezone", "UTC"), locale=p.settings.get("locale", "en-US"),
+              totp_enabled=p.totp_enabled)
 
 
 @router.post("/auth/signup", response_model=Me)
@@ -71,6 +73,11 @@ async def login(body: LoginIn, response: Response, request: Request):
     if not p:
         raise HTTPException(401, "Invalid email or password")
     await clear_login_failures(email)
+    if p.totp_enabled:
+        # Password OK, but 2FA is on: issue a short-lived challenge, no session yet.
+        from routers.totp import _challenge_token
+        await audit(p, "auth.login.password_ok", "user", p.user_id, {"ip": ip, "totp_pending": True})
+        return JSONResponse(status_code=202, content={"totp_required": True, "challenge": _challenge_token(user["id"])})
     set_session(response, user["id"], user.get("session_version", 0))
     await audit(p, "auth.login", "user", p.user_id, {"ip": ip})
     return _me(p)
@@ -95,7 +102,7 @@ async def reset_request(body: PasswordResetRequestIn, request: Request):
                                          "expires_dt": datetime.now(timezone.utc) + RESET_TTL, "created_at": now_iso()})
     base = (os.environ.get("PUBLIC_APP_URL") or request.headers.get("origin") or "").rstrip("/")
     link = f"{base}/reset-password?token={token}"
-    status, _ = await send_email(email, "Reset your Barber's Ledger password",
+    status, _ = await send_email(email, "Reset your Ledger password",
                                  f"Use this link within 1 hour to choose a new password:\n\n{link}\n\nIf you didn't ask for this, ignore this email.")
     if status != "sent":
         if is_production():
@@ -162,6 +169,9 @@ async def google_login(body: GoogleSessionIn, response: Response):
     p = await principal_for_user(user)
     if not p:
         raise HTTPException(401, "Account unavailable")
+    if p.totp_enabled:
+        from routers.totp import _challenge_token
+        return JSONResponse(status_code=202, content={"totp_required": True, "challenge": _challenge_token(user["id"])})
     set_session(response, user["id"], user.get("session_version", 0))
     return _me(p)
 
@@ -177,7 +187,7 @@ async def me(p: Principal = Depends(get_principal)):
     return _me(p)
 
 
-# ---------- Team (barbers). Every query is filtered by the caller's tenant_id ----------
+# ---------- Team (staff). Every query is filtered by the caller's tenant_id ----------
 @router.get("/team", response_model=list[TeamMember])
 async def list_team(p: Principal = Depends(require("team:read"))):
     users = await db.users.find({"tenant_id": p.tenant_id}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(1000)
@@ -191,9 +201,10 @@ async def add_member(body: TeamMemberCreate, p: Principal = Depends(require("tea
         raise HTTPException(409, "An account with this email already exists")
     user = {"id": str(uuid.uuid4()), "tenant_id": p.tenant_id, "email": email, "name": body.name.strip(),
             "password_hash": hash_password(body.password), "role": body.role, "commission_rate": body.commission_rate,
-            "created_at": now_iso()}
+            "booth_rent": body.booth_rent or 0, "created_at": now_iso()}
     await db.users.insert_one(dict(user))
-    await audit(p, "team.add", "user", user["id"], {"role": body.role, "commission_rate": body.commission_rate})
+    await audit(p, "team.add", "user", user["id"], {"role": body.role, "commission_rate": body.commission_rate,
+                                                   "booth_rent": body.booth_rent or 0})
     return TeamMember(**user)
 
 
@@ -202,12 +213,14 @@ async def update_member(id: str, body: TeamMemberUpdate, p: Principal = Depends(
     if id == p.user_id and body.role != "admin":
         raise HTTPException(400, "You cannot demote yourself")
     res = await db.users.find_one_and_update({"id": id, "tenant_id": p.tenant_id},
-                                             {"$set": {"commission_rate": body.commission_rate, "role": body.role}},
+                                             {"$set": {"commission_rate": body.commission_rate, "role": body.role,
+                                                       "booth_rent": body.booth_rent or 0}},
                                              projection={"_id": 0, "password_hash": 0}, return_document=True)
     if not res:
         raise HTTPException(404, "Member not found")
     await db.users.update_one({"id": id}, {"$inc": {"session_version": 1}})  # role change -> re-login with new perms
-    await audit(p, "team.update", "user", id, {"role": body.role, "commission_rate": body.commission_rate})
+    await audit(p, "team.update", "user", id, {"role": body.role, "commission_rate": body.commission_rate,
+                                               "booth_rent": body.booth_rent or 0})
     return TeamMember(**res)
 
 
@@ -220,3 +233,29 @@ async def remove_member(id: str, p: Principal = Depends(require("team:write"))):
         raise HTTPException(404, "Member not found")
     await audit(p, "team.remove", "user", id)
     return {"ok": True}
+
+
+@router.get("/team/payouts")
+async def team_payouts(start: str = "", end: str = "", p: Principal = Depends(require("report:read"))):
+    """Chair/booth-rent breakdown per team member: retail sales attributed to them in the
+    period, commission owed on those sales, their monthly booth rent, and the net payout."""
+    members = await db.users.find({"tenant_id": p.tenant_id}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(1000)
+    f: dict = {"tenant_id": p.tenant_id, "type": "sale"}
+    if start or end:
+        f["created_at"] = {**({"$gte": start} if start else {}), **({"$lte": end} if end else {})}
+    sales: dict[str, float] = {}
+    async for m in db.movements.find(f, {"_id": 0, "barber_id": 1, "quantity": 1, "unit_price": 1}):
+        bid = m.get("barber_id")
+        if not bid:
+            continue
+        sales[bid] = sales.get(bid, 0.0) + (-m["quantity"]) * (m.get("unit_price") or 0)
+    rows = []
+    for u in members:
+        rs = round(sales.get(u["id"], 0.0), 2)
+        rate = u.get("commission_rate", 0) or 0
+        commission = round(rs * rate / 100, 2)
+        rent = round(u.get("booth_rent", 0) or 0, 2)
+        rows.append({"id": u["id"], "name": u["name"], "role": u["role"], "retail_sales": rs,
+                     "commission_rate": rate, "commission": commission, "booth_rent": rent,
+                     "net_payout": round(commission - rent, 2)})
+    return {"start": start, "end": end, "rows": rows}

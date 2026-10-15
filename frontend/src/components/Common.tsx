@@ -1,3 +1,8 @@
+import { useState } from "react";
+import { Link2 } from "lucide-react";
+import { toast } from "sonner";
+import { apiPost } from "@/lib/api";
+import { errMsg } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { LotStatus, MovementType, POStatus, SerialStatus, StockStatus, Urgency, InvoiceStatus } from "@/lib/types";
 
@@ -101,5 +106,32 @@ export function Field({ label, children, hint, className }: { label: string; chi
       {children}
       {hint && <span className="block text-[11px] text-muted-foreground">{hint}</span>}
     </label>
+  );
+}
+
+/** Copy a magic-link portal URL for an invoice or estimate. */
+export function MagicLinkButton({ kind, id, testId }: { kind: "invoice" | "estimate"; id: string; testId?: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      data-testid={testId}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+      title="Copy a magic link — client views this with no login, expires in 7 days"
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const r = await apiPost<{ url: string }>(`/portal/${kind}s/${id}/link`, {});
+          await navigator.clipboard.writeText(r.url);
+          toast.success("Magic link copied — expires in 7 days");
+        } catch (e) {
+          toast.error(errMsg(e));
+        }
+        setBusy(false);
+      }}
+    >
+      <Link2 className="size-3" /> Magic link
+    </button>
   );
 }

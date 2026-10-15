@@ -4,22 +4,29 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Wallet, FileText, Package, ShoppingBag, ArrowLeftRight, BarChart3, Truck, Users, Settings as SettingsIcon,
-  LogOut, Menu, Sun, Moon, Scissors, ScanLine, ClipboardCheck, Barcode, Contact, Gamepad2, Banknote, ScrollText, Scale, ReceiptText, FileCheck2,
+  LogOut, Menu, Sun, Moon, Calculator, ScanLine, ClipboardCheck, Barcode, Contact, Banknote, ScrollText, Scale, ReceiptText, FileCheck2, Clock3, TrendingUp,
 } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { ApiError, apiGet } from "@/lib/api";
 import { configureFormats, errMsg } from "@/lib/format";
 import { endSession } from "@/lib/session";
-import type { Alerts, BarcodeLookup } from "@/lib/types";
+import type { Alerts, BarcodeLookup, WorkspaceSettings } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/Common";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Scanner from "@/components/Scanner";
 import ProductDialog from "@/components/ProductDialog";
-import MusicPlayer from "@/components/MusicPlayer";
 import Assistant from "@/components/Assistant";
 import QuickAdd from "@/components/QuickAdd";
+
+/** Small badge under the workspace name when the service-shop edition is active. */
+function EditionBadge() {
+  const { data } = useQuery({ queryKey: ["settings-edition"], queryFn: () => apiGet<WorkspaceSettings>("/settings"), staleTime: 300_000 });
+  if (data?.edition !== "service-shop") return null;
+  return <div className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary" data-testid="edition-badge">Service shop edition</div>;
+}
 
 interface NavDef { to: string; label: string; icon: React.ComponentType<{ className?: string }>; id: string; inv?: boolean; badge?: boolean; approvals?: boolean; perm?: string }
 const SECTIONS: { title: string; items: NavDef[] }[] = [
@@ -47,6 +54,10 @@ const SECTIONS: { title: string; items: NavDef[] }[] = [
   ] },
   { title: "Shop", items: [
     { to: "/team", label: "Team & commission", icon: Users, id: "team" },
+    { to: "/time", label: "Time tracking", icon: Clock3, id: "time", perm: "time:read" },
+    { to: "/payroll", label: "Payroll", icon: ReceiptText, id: "payroll", perm: "payroll:read" },
+    { to: "/budget", label: "Budgets & forecast", icon: TrendingUp, id: "budget", perm: "budget:read" },
+    { to: "/tax", label: "Tax & 1099s", icon: FileCheck2, id: "tax", perm: "tax:read" },
     { to: "/settings", label: "Settings", icon: SettingsIcon, id: "settings", perm: "settings:read" },
   ] },
 ];
@@ -104,9 +115,9 @@ export default function AppLayout() {
   const sidebar = (
     <div className="flex h-full flex-col gap-6 py-5">
       <div className="flex items-center gap-2.5 px-4">
-        <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground"><Scissors className="size-4" /></div>
+        <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground"><Calculator className="size-4" /></div>
         <div className="leading-tight">
-          <div className="font-heading text-base font-semibold tracking-tight">Barber's Ledger</div>
+          <div className="font-heading text-base font-semibold tracking-tight">Ledger</div>
           <div className="label-caps !text-[9px]">Books + stock</div>
         </div>
       </div>
@@ -136,15 +147,11 @@ export default function AppLayout() {
           );
         })}
       </nav>
-      {inv && me && (
-        <a href={`/play/${me.tenant_id}`} target="_blank" rel="noreferrer" data-testid="nav-game" className="mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-foreground">
-          <Gamepad2 className="size-4" /> Waiting-room game ↗
-        </a>
-      )}
       <div className="mt-auto px-3">
         <div className="rounded-lg border border-border bg-background/50 p-3">
           <div className="label-caps !text-[9px]">Workspace</div>
           <div data-testid="sidebar-tenant-name" className="mt-1 truncate text-sm font-medium">{me?.tenant_name ?? (isLoading ? "…" : "—")}</div>
+          <EditionBadge />
         </div>
       </div>
     </div>
@@ -173,7 +180,7 @@ export default function AppLayout() {
             </Button>
             <div className="hidden text-right leading-tight sm:block">
               <div data-testid="topbar-user-name" className="text-sm font-medium">{me?.name ?? ""}</div>
-              <div data-testid="topbar-user-role" className="label-caps !text-[9px]">{me?.role === "admin" ? "owner" : "barber"}</div>
+              <div data-testid="topbar-user-role" className="label-caps !text-[9px]">{me?.role === "admin" ? "owner" : "staff"}</div>
             </div>
             <Button variant="ghost" size="icon-sm" onClick={() => endSession()} data-testid="logout-button" aria-label="Sign out"><LogOut /></Button>
           </div>
@@ -192,17 +199,34 @@ export default function AppLayout() {
           {scanOpen && <Scanner onCode={(c) => void lookup(c)} />}
         </DialogContent>
       </Dialog>
-      {inv && <MusicPlayer />}
-      <ProductDialog open={newCode !== null} onOpenChange={(o) => !o && setNewCode(null)} initialBarcode={newCode ?? ""}
-        onSaved={(p) => nav(`/inventory/products/${p.id}`)} />
+      {inv && <ProductDialog open={newCode !== null} onOpenChange={(o) => !o && setNewCode(null)} initialBarcode={newCode ?? ""}
+        onSaved={(p) => nav(`/inventory/products/${p.id}`)} />}
     </div>
   );
 }
 
-/** Route guard: with the add-on off, inventory pages don't exist. */
+/** Route guard: with the add-on off, inventory pages don't exist. Shows an
+ *  explanatory empty state (instead of a silent redirect) with a path to enable it. */
 export function InventoryGate({ children }: { children: React.ReactNode }) {
   const { data: me } = useMe();
-  if (me && !me.inventory_enabled) return <Navigate to="/" replace />;
+  const nav = useNavigate();
   if (!me) return null;
+  if (!me.inventory_enabled) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <Panel className="p-8">
+          <Package className="mx-auto size-8 text-muted-foreground" />
+          <h2 className="mt-3 font-heading text-lg font-semibold">Inventory add-on is off</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            Products, stock, procurement, clients and payments live here. Turn the add-on on in
+            Settings — your existing data is kept and comes back when you do.
+          </p>
+          <Button size="sm" className="mt-4" onClick={() => nav("/settings")} data-testid="inventory-gate-settings-button">
+            Open Settings
+          </Button>
+        </Panel>
+      </div>
+    );
+  }
   return <>{children}</>;
 }

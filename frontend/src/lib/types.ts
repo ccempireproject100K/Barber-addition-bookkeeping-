@@ -13,6 +13,7 @@ export interface Me {
   permissions: string[];
   inventory_enabled: boolean;
   ai_enabled: boolean;
+  totp_enabled: boolean;
   access: "demo" | "paid" | "none";
   entitlements: Record<string, boolean>;
 }
@@ -22,8 +23,8 @@ export interface OkOut { ok: boolean; message: string }
 export interface SignupIn { currency?: string; timezone?: string; locale?: string; company_name: string; name: string; email: string; password: string }
 export interface LoginIn { email: string; password: string }
 export interface GoogleSessionIn { session_id: string }
-export interface TeamMember { id: string; name: string; email: string; role: Role; commission_rate: number; created_at: string }
-export interface TeamMemberCreate { name: string; email: string; password: string; role: Role; commission_rate: number }
+export interface TeamMember { id: string; name: string; email: string; role: Role; commission_rate: number; booth_rent: number; created_at: string }
+export interface TeamMemberCreate { name: string; email: string; password: string; role: Role; commission_rate: number; booth_rent: number }
 export interface TeamMemberUpdate { commission_rate: number; role: Role }
 
 // ---------- models/inventory.py ----------
@@ -239,7 +240,7 @@ export interface Dashboard {
 export interface WorkspaceSettings {
   currency: string; timezone: string; locale: string;
   name: string; inventory_enabled: boolean; low_stock_email: boolean; expiry_warning_days: number;
-  expense_category_retail: string; expense_category_supply: string; allow_negative_stock: boolean; ai_enabled: boolean; po_approval_limit: number; weekly_ai_email: boolean;
+  expense_category_retail: string; expense_category_supply: string; allow_negative_stock: boolean; ai_enabled: boolean; po_approval_limit: number; weekly_ai_email: boolean; edition: "general" | "service-shop";
 }
 
 // ---------- models/ai.py ----------
@@ -256,20 +257,23 @@ export interface SupplierScorecard {
   open_orders: number; grade: string;
 }
 
-// ---------- routers/clients.py, payments.py, game.py ----------
+// ---------- routers/clients.py, payments.py ----------
 export interface ClientIn { name: string; phone: string; email: string; notes: string }
 export interface Client extends ClientIn { id: string; total_spent: number; visits: number; last_visit: string | null; created_at: string }
 export interface ClientPurchase { movement_id: string; product_id: string; product_name: string; quantity: number; unit_price: number; date: string; barber_name: string | null }
 export interface Suggestion { product_id: string; name: string; sell_price: number; in_stock: boolean; kind: "rebuy" | "pairs" | "popular"; reason: string }
 export interface ClientProfile { client: Client; purchases: ClientPurchase[]; favorites: string[]; suggestions: Suggestion[] }
 export interface DiscountCheck { code: string; pct: number; valid: boolean; reason: string }
+export interface RecurringInvoiceLine { description: string; quantity: number; unit_price: number; kind: "service" | "product"; product_id: string | null }
+export interface RecurringInvoiceIn { name: string; client_name: string; lines: RecurringInvoiceLine[]; discount_amount: number; tax_rate: number; tip_amount: number; day_of_month: number; active: boolean; notes: string }
+export interface RecurringInvoice extends RecurringInvoiceIn { id: string; last_run: string | null; created_at: string }
+export interface OverdueInvoice { id: string; number: string; client_name: string; due_date: string | null; days_overdue: number; balance_due: number; total: number }
+export interface ReminderRecord { id: string; invoice_id: string; number: string; client_name: string; to_email: string; subject: string; message: string; status: string; error: string; sent_at: string; sent_by: string }
+export interface PayoutRow { id: string; name: string; role: string; retail_sales: number; commission_rate: number; commission: number; booth_rent: number; net_payout: number }
+export interface BackupMeta { id: string; created_at: string; created_by: string; size_bytes: number; collections: string[]; documents: number }
 export interface CardCheckoutIn extends CheckoutIn { origin_url: string }
 export interface CardCheckoutOut { checkout_url: string; session_id: string }
 export interface PaymentStatus { currency: string; session_id: string; status: string; payment_status: string; fulfilled: boolean; error: string; total: number }
-export interface ScoreIn { name: string; score: number; duration_ms: number }
-export interface ScoreRow { name: string; score: number }
-export interface GameInfo { shop: string; week: string; target: number; reward_pct: number; top_reward_pct: number; leaderboard: ScoreRow[] }
-export interface ScoreOut { rank: number; best: boolean; code: string | null; pct: number; message: string }
 
 // ---------- models/ledger.py ----------
 export interface BillingStatus {
@@ -330,3 +334,4 @@ export interface ReceiptScan { vendor: string; date: string; amount: number; tax
 
 export type EstimateStatus = "draft" | "sent" | "accepted" | "declined" | "converted";
 export interface Estimate { id: string; number: string; client_name: string; date: string; valid_until: string | null; status: EstimateStatus; lines: InvoiceLine[]; subtotal: number; discount_amount: number; tax_rate: number; tax_amount: number; tip_amount: number; total: number; barber_id: string | null; barber_name: string | null; notes: string; converted_invoice_id: string | null; converted_invoice_number: string | null; created_at: string }
+export interface CopilotAction { id: string; kind: string; title: string; detail: string; payload: Record<string, unknown>; status: "proposed" | "approved" | "rejected" | "executed"; created_at: string; decided_at: string | null; decided_by: string | null; result: string | null }

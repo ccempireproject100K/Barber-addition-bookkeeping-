@@ -17,7 +17,7 @@ from lib.db import db
 logger = logging.getLogger("app.errors")
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 # Server-to-server endpoints authenticated by signature/secret, not by the session cookie.
-CSRF_EXEMPT = ("/api/stripe/webhook", "/api/cron/", "/api/po-action")
+CSRF_EXEMPT = ("/api/stripe/webhook", "/api/cron/", "/api/po-action", "/api/bankfeed/webhook")
 
 
 def is_production() -> bool:

@@ -9,6 +9,7 @@ import { useMe } from "@/hooks/useMe";
 import { PageHeader, Panel, Pill, Stat, UrgencyBadge } from "@/components/Common";
 import { buttonVariants } from "@/components/ui/button";
 import InsightsCard from "@/components/InsightsCard";
+import SetupChecklist from "@/components/SetupChecklist";
 import ApprovalsCard from "@/components/procurement/ApprovalsCard";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ export default function Dashboard() {
           <Link to="/inventory/sell" className={buttonVariants({ size: "sm" })} data-testid="dashboard-quick-sell-link"><ShoppingBag /> Quick sell</Link>
         )}
       </PageHeader>
+
+      <div className="mb-3"><SetupChecklist /></div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat label="Income this month" testId="stat-income-month" value={d ? fmtMoney(d.income_month) : "—"} />

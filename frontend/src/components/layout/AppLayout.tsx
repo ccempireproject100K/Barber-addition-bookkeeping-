@@ -50,6 +50,7 @@ const SECTIONS: { title: string; items: NavDef[] }[] = [
     { to: "/time", label: "Time tracking", icon: Clock3, id: "time", perm: "time:read" },
     { to: "/payroll", label: "Payroll", icon: ReceiptText, id: "payroll", perm: "payroll:read" },
     { to: "/budget", label: "Budgets & forecast", icon: TrendingUp, id: "budget", perm: "budget:read" },
+    { to: "/tax", label: "Tax & 1099s", icon: FileCheck2, id: "tax", perm: "tax:read" },
     { to: "/settings", label: "Settings", icon: SettingsIcon, id: "settings", perm: "settings:read" },
   ] },
 ];

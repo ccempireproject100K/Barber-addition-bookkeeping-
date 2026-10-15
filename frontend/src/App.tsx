@@ -2,7 +2,6 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import AuthCallback from "@/pages/AuthCallback";
 import Clients from "@/pages/Clients";
 import PaymentResult from "@/pages/PaymentResult";
-import Play from "@/pages/Play";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout, { InventoryGate } from "@/components/layout/AppLayout";
 import Auth from "@/pages/Auth";
@@ -21,6 +20,10 @@ import Labels from "@/pages/Labels";
 import Reports from "@/pages/Reports";
 import Procurement from "@/pages/Procurement";
 import Team from "@/pages/Team";
+import Time from "@/pages/Time";
+import Portal from "@/pages/Portal";
+import Payroll from "@/pages/Payroll";
+import Budget from "@/pages/Budget";
 import Settings from "@/pages/Settings";
 import CashClosePage from "@/pages/CashClose";
 import AuditLog from "@/pages/AuditLog";
@@ -37,9 +40,9 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/signup" element={<Auth mode="signup" />} />
-        <Route path="/play/:tenantId" element={<Play />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/portal/v/:token" element={<Portal />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/money" element={<Money />} />
@@ -60,6 +63,9 @@ export default function App() {
           <Route path="/inventory/reports" element={gated(<Reports />)} />
           <Route path="/procurement" element={gated(<Procurement />)} />
           <Route path="/team" element={<Team />} />
+          <Route path="/time" element={<Time />} />
+          <Route path="/payroll" element={<Payroll />} />
+          <Route path="/budget" element={<Budget />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/cash-close" element={<CashClosePage />} />
           <Route path="/audit" element={<AuditLog />} />

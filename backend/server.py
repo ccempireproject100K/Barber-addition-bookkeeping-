@@ -19,8 +19,8 @@ from lib.migrations import run_migrations
 from lib.ops import recover_ops
 from lib.security import SecurityMiddleware
 from routers import billing, cash, ledger
-from routers import ai, auth, clients, cron, game, payments, po_links, source, insights, inv_reports, money, movements, products, purchase_orders, suppliers
-from routers import bookkeeping, expenses, books_ops, bills, recurring, estimates
+from routers import ai, auth, clients, cron, payments, po_links, source, insights, inv_reports, money, movements, products, purchase_orders, suppliers
+from routers import bookkeeping, expenses, books_ops, bills, recurring, estimates, recurring_invoices, reminders, backup, bankfeed, time, portal, payroll, budget, tax
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +39,14 @@ async def lifespan(app: FastAPI):
     client.close()
 
 
-app = FastAPI(lifespan=lifespan, title="The Barber's Ledger")
+app = FastAPI(lifespan=lifespan, title="Ledger")
 
 api_router = APIRouter(prefix="/api")
 
 
 @api_router.get("/")
 async def root():
-    return {"message": "The Barber's Ledger API"}
+    return {"message": "Ledger API"}
 
 
 # Money core + auth + settings: always available.
@@ -58,7 +58,6 @@ api_router.include_router(source.router)
 api_router.include_router(po_links.router)
 api_router.include_router(clients.router)
 api_router.include_router(payments.router)
-api_router.include_router(game.router)
 api_router.include_router(billing.router)
 api_router.include_router(cash.router)
 api_router.include_router(ledger.router)
@@ -68,6 +67,15 @@ api_router.include_router(books_ops.router)
 api_router.include_router(bills.router)
 api_router.include_router(recurring.router)
 api_router.include_router(estimates.router)
+api_router.include_router(recurring_invoices.router)
+api_router.include_router(reminders.router)
+api_router.include_router(backup.router)
+api_router.include_router(bankfeed.router)
+api_router.include_router(time.router)
+api_router.include_router(portal.router)
+api_router.include_router(payroll.router)
+api_router.include_router(budget.router)
+api_router.include_router(tax.router)
 
 # Inventory add-on: every route sits behind the per-workspace module flag (404 when off).
 inventory_router = APIRouter(prefix="/inventory", dependencies=[Depends(require_inventory)])

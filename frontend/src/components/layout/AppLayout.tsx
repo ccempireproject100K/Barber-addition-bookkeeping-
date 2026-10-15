@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Wallet, FileText, Package, ShoppingBag, ArrowLeftRight, BarChart3, Truck, Users, Settings as SettingsIcon,
-  LogOut, Menu, Sun, Moon, Scissors, ScanLine, ClipboardCheck, Barcode, Contact, Gamepad2, Banknote, ScrollText, Scale, ReceiptText, FileCheck2,
+  LogOut, Menu, Sun, Moon, Calculator, ScanLine, ClipboardCheck, Barcode, Contact, Banknote, ScrollText, Scale, ReceiptText, FileCheck2, Clock3, TrendingUp,
 } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { ApiError, apiGet } from "@/lib/api";
@@ -13,11 +13,11 @@ import { endSession } from "@/lib/session";
 import type { Alerts, BarcodeLookup } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/Common";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Scanner from "@/components/Scanner";
 import ProductDialog from "@/components/ProductDialog";
-import MusicPlayer from "@/components/MusicPlayer";
 import Assistant from "@/components/Assistant";
 import QuickAdd from "@/components/QuickAdd";
 
@@ -47,6 +47,9 @@ const SECTIONS: { title: string; items: NavDef[] }[] = [
   ] },
   { title: "Shop", items: [
     { to: "/team", label: "Team & commission", icon: Users, id: "team" },
+    { to: "/time", label: "Time tracking", icon: Clock3, id: "time", perm: "time:read" },
+    { to: "/payroll", label: "Payroll", icon: ReceiptText, id: "payroll", perm: "payroll:read" },
+    { to: "/budget", label: "Budgets & forecast", icon: TrendingUp, id: "budget", perm: "budget:read" },
     { to: "/settings", label: "Settings", icon: SettingsIcon, id: "settings", perm: "settings:read" },
   ] },
 ];
@@ -104,9 +107,9 @@ export default function AppLayout() {
   const sidebar = (
     <div className="flex h-full flex-col gap-6 py-5">
       <div className="flex items-center gap-2.5 px-4">
-        <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground"><Scissors className="size-4" /></div>
+        <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground"><Calculator className="size-4" /></div>
         <div className="leading-tight">
-          <div className="font-heading text-base font-semibold tracking-tight">Barber's Ledger</div>
+          <div className="font-heading text-base font-semibold tracking-tight">Ledger</div>
           <div className="label-caps !text-[9px]">Books + stock</div>
         </div>
       </div>
@@ -136,11 +139,6 @@ export default function AppLayout() {
           );
         })}
       </nav>
-      {inv && me && (
-        <a href={`/play/${me.tenant_id}`} target="_blank" rel="noreferrer" data-testid="nav-game" className="mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-foreground">
-          <Gamepad2 className="size-4" /> Waiting-room game ↗
-        </a>
-      )}
       <div className="mt-auto px-3">
         <div className="rounded-lg border border-border bg-background/50 p-3">
           <div className="label-caps !text-[9px]">Workspace</div>
@@ -173,7 +171,7 @@ export default function AppLayout() {
             </Button>
             <div className="hidden text-right leading-tight sm:block">
               <div data-testid="topbar-user-name" className="text-sm font-medium">{me?.name ?? ""}</div>
-              <div data-testid="topbar-user-role" className="label-caps !text-[9px]">{me?.role === "admin" ? "owner" : "barber"}</div>
+              <div data-testid="topbar-user-role" className="label-caps !text-[9px]">{me?.role === "admin" ? "owner" : "staff"}</div>
             </div>
             <Button variant="ghost" size="icon-sm" onClick={() => endSession()} data-testid="logout-button" aria-label="Sign out"><LogOut /></Button>
           </div>
@@ -192,17 +190,34 @@ export default function AppLayout() {
           {scanOpen && <Scanner onCode={(c) => void lookup(c)} />}
         </DialogContent>
       </Dialog>
-      {inv && <MusicPlayer />}
-      <ProductDialog open={newCode !== null} onOpenChange={(o) => !o && setNewCode(null)} initialBarcode={newCode ?? ""}
-        onSaved={(p) => nav(`/inventory/products/${p.id}`)} />
+      {inv && <ProductDialog open={newCode !== null} onOpenChange={(o) => !o && setNewCode(null)} initialBarcode={newCode ?? ""}
+        onSaved={(p) => nav(`/inventory/products/${p.id}`)} />}
     </div>
   );
 }
 
-/** Route guard: with the add-on off, inventory pages don't exist. */
+/** Route guard: with the add-on off, inventory pages don't exist. Shows an
+ *  explanatory empty state (instead of a silent redirect) with a path to enable it. */
 export function InventoryGate({ children }: { children: React.ReactNode }) {
   const { data: me } = useMe();
-  if (me && !me.inventory_enabled) return <Navigate to="/" replace />;
+  const nav = useNavigate();
   if (!me) return null;
+  if (!me.inventory_enabled) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <Panel className="p-8">
+          <Package className="mx-auto size-8 text-muted-foreground" />
+          <h2 className="mt-3 font-heading text-lg font-semibold">Inventory add-on is off</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            Products, stock, procurement, clients and payments live here. Turn the add-on on in
+            Settings — your existing data is kept and comes back when you do.
+          </p>
+          <Button size="sm" className="mt-4" onClick={() => nav("/settings")} data-testid="inventory-gate-settings-button">
+            Open Settings
+          </Button>
+        </Panel>
+      </div>
+    );
+  }
   return <>{children}</>;
 }

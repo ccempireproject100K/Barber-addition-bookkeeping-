@@ -132,7 +132,7 @@ export default function QuickSell() {
             {cart.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Tap products to add them.</p>}
           </div>
           <div className="mt-3 space-y-3 border-t border-border pt-3">
-            <Field label="Barber (for commission)">
+            <Field label="Staff (for commission)">
               <NativeSelect value={barber} onChange={(e) => setBarber(e.target.value)} data-testid="quick-sell-barber-select">
                 <option value="">— None —</option>
                 {team.map((t) => <option key={t.id} value={t.id}>{`${t.name}${t.id === me_id ? " (me)" : ""}`}</option>)}

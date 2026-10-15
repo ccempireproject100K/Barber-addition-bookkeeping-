@@ -20,6 +20,7 @@ import Scanner from "@/components/Scanner";
 import ProductDialog from "@/components/ProductDialog";
 import Assistant from "@/components/Assistant";
 import QuickAdd from "@/components/QuickAdd";
+import MusicPlayer from "@/components/MusicPlayer";
 
 interface NavDef { to: string; label: string; icon: React.ComponentType<{ className?: string }>; id: string; inv?: boolean; badge?: boolean; approvals?: boolean; perm?: string }
 const SECTIONS: { title: string; items: NavDef[] }[] = [
@@ -187,6 +188,7 @@ export default function AppLayout() {
           {scanOpen && <Scanner onCode={(c) => void lookup(c)} />}
         </DialogContent>
       </Dialog>
+      {inv && <MusicPlayer />}
       {inv && <ProductDialog open={newCode !== null} onOpenChange={(o) => !o && setNewCode(null)} initialBarcode={newCode ?? ""}
         onSaved={(p) => nav(`/inventory/products/${p.id}`)} />}
     </div>

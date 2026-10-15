@@ -9,6 +9,7 @@ import type {
   JournalEntryView, SalesSummary, TrialBalance,
 } from "@/lib/types";
 import { PageHeader, Panel, Pill, Stat } from "@/components/Common";
+import BankFeedPanel from "@/components/BankFeedPanel";
 import { queryClient } from "@/lib/queryClient";
 import { toast as toastFn } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -392,6 +393,7 @@ function BankView() {
   const resolve = async (id: string, action: string, category = "") => { try { await apiPost(`/books/bank/${id}/resolve`, { action, category }); refetch(); } catch (e) { toastFn.error(errMsg(e)); } };
   return (
     <div className="space-y-4">
+      <BankFeedPanel onChanged={refetch} />
       <Panel className="p-4">
         <div className="label-caps mb-2">Import a bank statement (CSV with date, description, amount)</div>
         <div className="flex flex-wrap items-center gap-2">

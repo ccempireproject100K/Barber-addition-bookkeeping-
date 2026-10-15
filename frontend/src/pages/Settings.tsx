@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CreditCard, Mail, Package } from "lucide-react";
+import { CreditCard, LogOut, Mail, Package } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg, fmtDateTime } from "@/lib/format";
 import { invalidateInventory } from "@/lib/invalidate";
@@ -103,6 +103,28 @@ function BillingPanel({ admin }: { admin: boolean }) {
   );
 }
 
+function SessionsPanel() {
+  const qc = useQueryClient();
+  const signOutAll = async () => {
+    if (!window.confirm("Sign out on every device? You'll need to sign in again here.")) return;
+    try { await apiPost("/auth/logout-all"); }
+    catch (e) { toast.error(errMsg(e)); return; }
+    qc.clear();
+    window.location.assign("/login");
+  };
+  return (
+    <Panel className="p-4 md:p-5" data-testid="settings-sessions-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Sessions</h3>
+          <p className="text-xs text-muted-foreground">Left signed in somewhere else? End every session at once.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => void signOutAll()} data-testid="signout-all-button"><LogOut className="size-3" /> Sign out all devices</Button>
+      </div>
+    </Panel>
+  );
+}
+
 const fmtMoneyLocal = (v: number) => `${v.toFixed(2)} USD`;
 
 export default function Settings() {
@@ -130,6 +152,7 @@ export default function Settings() {
     <div className="space-y-4">
       <PageHeader title="Settings" subtitle="Workspace and add-on configuration." />
       <BillingPanel admin={admin} />
+      <SessionsPanel />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(f); }}>
         <Panel className="p-4 md:p-5">
           <InternationalFields value={f} disabled={!admin} currencyLocked onChange={(key, value) => setF({ ...f, [key]: value })} />

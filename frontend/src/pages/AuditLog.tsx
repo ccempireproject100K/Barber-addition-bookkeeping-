@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
-import { apiGet } from "@/lib/api";
-import { fmtDateTime } from "@/lib/format";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Download, LifeBuoy } from "lucide-react";
+import { apiGet, apiPost } from "@/lib/api";
+import { errMsg, fmtDateTime } from "@/lib/format";
 import type { AuditEntry } from "@/lib/types";
 import { can, useMe } from "@/hooks/useMe";
 import { EmptyRow, NativeSelect, PageHeader, Panel } from "@/components/Common";
@@ -15,16 +16,30 @@ const FILTERS = [["", "All activity"], ["txn", "Transactions"], ["invoice", "Inv
 export default function AuditLog() {
   const { data: me } = useMe();
   const [action, setAction] = useState("");
+  const qc = useQueryClient();
   const { data: rows = [], isLoading } = useQuery({ queryKey: ["audit", action], queryFn: () => apiGet<AuditEntry[]>(`/audit${action ? `?action=${action}` : ""}`), enabled: can(me, "audit:read") });
+  const runRecover = async () => {
+    if (!window.confirm("Run journal recovery? It replays interrupted operations and is safe to run anytime.")) return;
+    try {
+      const r = await apiPost<{ rolled_forward: number; rolled_back: number; failed: number }>("/ops/recover");
+      toast.success(`Recovery done — ${r.rolled_forward} rolled forward, ${r.rolled_back} rolled back, ${r.failed} failed`);
+      qc.invalidateQueries({ queryKey: ["audit"] });
+    } catch (e) { toast.error(errMsg(e)); }
+  };
   return (
     <div className="space-y-4">
       <PageHeader eyebrow="Ledger" title="Audit log & exports" subtitle="Who did what, when. Entries can't be edited or deleted. Exports are for your accountant.">
-        {can(me, "export:read") && (
-          <div className="flex gap-2">
-            <a href="/api/exports/transactions.csv" data-testid="export-transactions-link"><Button size="sm" variant="outline" tabIndex={-1}><Download /> Transactions CSV</Button></a>
-            <a href="/api/exports/audit.csv" data-testid="export-audit-link"><Button size="sm" variant="outline" tabIndex={-1}><Download /> Audit CSV</Button></a>
-          </div>
-        )}
+        <div className="flex gap-2">
+          {can(me, "ops:recover") && (
+            <Button size="sm" variant="outline" onClick={() => void runRecover()} data-testid="ops-recover-button"><LifeBuoy /> Run recovery</Button>
+          )}
+          {can(me, "export:read") && (
+            <div className="flex gap-2">
+              <a href="/api/exports/transactions.csv" data-testid="export-transactions-link"><Button size="sm" variant="outline" tabIndex={-1}><Download /> Transactions CSV</Button></a>
+              <a href="/api/exports/audit.csv" data-testid="export-audit-link"><Button size="sm" variant="outline" tabIndex={-1}><Download /> Audit CSV</Button></a>
+            </div>
+          )}
+        </div>
       </PageHeader>
       <Panel>
         <div className="border-b border-border p-3">

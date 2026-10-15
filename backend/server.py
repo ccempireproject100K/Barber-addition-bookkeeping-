@@ -19,7 +19,7 @@ from lib.migrations import run_migrations
 from lib.ops import recover_ops
 from lib.security import SecurityMiddleware
 from routers import billing, cash, ledger
-from routers import ai, auth, clients, cron, game, payments, po_links, source, insights, inv_reports, money, movements, products, purchase_orders, suppliers
+from routers import ai, auth, clients, cron, payments, po_links, source, insights, inv_reports, money, movements, products, purchase_orders, suppliers
 from routers import bookkeeping, expenses, books_ops, bills, recurring, estimates
 
 logger = logging.getLogger(__name__)
@@ -39,14 +39,14 @@ async def lifespan(app: FastAPI):
     client.close()
 
 
-app = FastAPI(lifespan=lifespan, title="The Barber's Ledger")
+app = FastAPI(lifespan=lifespan, title="Ledger")
 
 api_router = APIRouter(prefix="/api")
 
 
 @api_router.get("/")
 async def root():
-    return {"message": "The Barber's Ledger API"}
+    return {"message": "Ledger API"}
 
 
 # Money core + auth + settings: always available.
@@ -58,7 +58,6 @@ api_router.include_router(source.router)
 api_router.include_router(po_links.router)
 api_router.include_router(clients.router)
 api_router.include_router(payments.router)
-api_router.include_router(game.router)
 api_router.include_router(billing.router)
 api_router.include_router(cash.router)
 api_router.include_router(ledger.router)

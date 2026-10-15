@@ -7,12 +7,13 @@ import { cn } from "@/lib/utils";
 interface Track { title: string; src: string; live?: boolean }
 
 // Free, listener-supported public streams (no keys, no accounts).
+// Professional-casual lineup: mellow background music suited to office work.
 const STATIONS: Track[] = [
   { title: "SomaFM · Groove Salad (chill)", src: "https://ice1.somafm.com/groovesalad-128-mp3", live: true },
-  { title: "SomaFM · Lush (vocals)", src: "https://ice1.somafm.com/lush-128-mp3", live: true },
-  { title: "SomaFM · Underground 80s", src: "https://ice1.somafm.com/u80s-128-mp3", live: true },
+  { title: "SomaFM · Lush (mellow vocals)", src: "https://ice1.somafm.com/lush-128-mp3", live: true },
+  { title: "SomaFM · Sonic Universe (nu-jazz)", src: "https://ice1.somafm.com/sonicuniverse-128-mp3", live: true },
+  { title: "SomaFM · Deep Space One (ambient)", src: "https://ice1.somafm.com/deepspaceone-128-mp3", live: true },
   { title: "Radio Paradise · Main mix", src: "https://stream.radioparadise.com/mp3-128", live: true },
-  { title: "KEXP 90.3 Seattle", src: "https://kexp-mp3-128.streamguys1.com/kexp128.mp3", live: true },
 ];
 
 // Minimal Web Speech API typing (not in TS's DOM lib).

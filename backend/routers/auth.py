@@ -95,7 +95,7 @@ async def reset_request(body: PasswordResetRequestIn, request: Request):
                                          "expires_dt": datetime.now(timezone.utc) + RESET_TTL, "created_at": now_iso()})
     base = (os.environ.get("PUBLIC_APP_URL") or request.headers.get("origin") or "").rstrip("/")
     link = f"{base}/reset-password?token={token}"
-    status, _ = await send_email(email, "Reset your Barber's Ledger password",
+    status, _ = await send_email(email, "Reset your Ledger password",
                                  f"Use this link within 1 hour to choose a new password:\n\n{link}\n\nIf you didn't ask for this, ignore this email.")
     if status != "sent":
         if is_production():
@@ -177,7 +177,7 @@ async def me(p: Principal = Depends(get_principal)):
     return _me(p)
 
 
-# ---------- Team (barbers). Every query is filtered by the caller's tenant_id ----------
+# ---------- Team (staff). Every query is filtered by the caller's tenant_id ----------
 @router.get("/team", response_model=list[TeamMember])
 async def list_team(p: Principal = Depends(require("team:read"))):
     users = await db.users.find({"tenant_id": p.tenant_id}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(1000)

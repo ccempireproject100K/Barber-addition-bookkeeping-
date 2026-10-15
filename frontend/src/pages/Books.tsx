@@ -341,6 +341,7 @@ function OverviewView() {
   const payout = () => { const v = prompt(`Pay out tips — owed ${fmtMoney(o.tips_owed)}`, String(o.tips_owed)); if (v) act("/books/tips/payout", { amount: Number(v), method: "cash" }, "Tips payout"); };
   const equity = (kind: "contribution" | "draw") => { const v = prompt(`Owner ${kind} amount`); if (v) act("/books/equity", { kind, amount: Number(v), method: "bank" }, `Owner ${kind}`); };
   const close = () => { const v = prompt("Close the books through (YYYY-MM-DD) — no entries allowed on/before this date", businessToday()); if (v) act("/books/close", { through: v }, "Books closed"); };
+  const reopen = () => { if (window.confirm(`Reopen the books? Entries on or before ${o.closed_through} will be allowed again.`)) act("/books/reopen", {}, "Books reopened"); };
   return (
     <div className="space-y-5" data-testid="overview">
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -367,6 +368,7 @@ function OverviewView() {
             <Button size="sm" variant="outline" disabled={!!busy} onClick={() => equity("contribution")} data-testid="ov-contribute">Owner contribution</Button>
             <Button size="sm" variant="outline" disabled={!!busy} onClick={() => equity("draw")} data-testid="ov-draw">Owner draw</Button>
             <Button size="sm" variant="outline" disabled={!!busy} onClick={close} data-testid="ov-close"><Lock className="size-3" /> Close period</Button>
+            {o.closed_through && <Button size="sm" variant="outline" disabled={!!busy} onClick={reopen} data-testid="ov-reopen"><Lock className="size-3" /> Reopen books</Button>}
           </div>
         </Panel>
         <Panel className="p-4">

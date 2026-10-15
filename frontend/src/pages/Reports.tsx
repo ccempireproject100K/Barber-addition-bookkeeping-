@@ -67,8 +67,8 @@ export default function Reports() {
                 </ResponsiveContainer>
               </div>
             </Panel>
-            <Simple testId="report-barbers" title="Profit & commission by barber" rows={r.profit_by_barber} cols={[
-              ["Barber", (b) => b.name], ["Units", (b) => b.units, true], ["Revenue", (b) => fmtMoney(b.revenue), true],
+            <Simple testId="report-barbers" title="Profit & commission by staff" rows={r.profit_by_barber} cols={[
+              ["Staff", (b) => b.name], ["Units", (b) => b.units, true], ["Revenue", (b) => fmtMoney(b.revenue), true],
               ["Profit", (b) => fmtMoney(b.profit), true], ["Commission", (b) => `${fmtMoney(b.commission)} (${b.commission_rate}%)`, true],
             ]} />
           </div>

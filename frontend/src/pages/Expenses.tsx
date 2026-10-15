@@ -110,6 +110,7 @@ export default function Expenses() {
 
       <BillsSection writable={writable} vendors={vendors} categories={categories} />
       <RecurringSection writable={writable} vendors={vendors} categories={categories} />
+      <VendorsSection writable={writable} />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md" data-testid="expense-dialog">
@@ -152,6 +153,42 @@ export default function Expenses() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function VendorsSection({ writable }: { writable: boolean }) {
+  const { data: vendors = [] } = useQuery({ queryKey: ["vendors"], queryFn: () => apiGet<Vendor[]>("/vendors") });
+  const del = useMutation({
+    mutationFn: (id: string) => apiDelete(`/vendors/${id}`),
+    onSuccess: () => { toast.success("Vendor deleted"); queryClient.invalidateQueries({ queryKey: ["vendors"] }); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const onDelete = (v: Vendor) => {
+    if (window.confirm(`Delete vendor "${v.name}"? Expenses already recorded keep their vendor name.`)) del.mutate(v.id);
+  };
+  return (
+    <div className="mt-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-heading text-lg font-semibold">Vendors</h2>
+      </div>
+      <Panel className="overflow-hidden">
+        <table className="w-full text-sm" data-testid="vendors-table">
+          <thead><tr className="border-b border-border text-left text-muted-foreground"><th className="px-4 py-2 font-medium">Name</th><th className="px-4 py-2 font-medium">Contact</th><th className="px-4 py-2 font-medium">Email</th><th className="px-4 py-2 font-medium">Phone</th><th className="px-4 py-2"></th></tr></thead>
+          <tbody>
+            {vendors.map((v) => (
+              <tr key={v.id} className="border-b border-border last:border-0" data-testid={`vendor-row-${v.id}`}>
+                <td className="px-4 py-2 font-medium">{v.name}</td>
+                <td className="px-4 py-2">{v.contact_name || "—"}</td>
+                <td className="px-4 py-2">{v.email || "—"}</td>
+                <td className="px-4 py-2">{v.phone || "—"}</td>
+                <td className="px-4 py-2 text-right">{writable && <Button size="icon-sm" variant="ghost" aria-label={`Delete ${v.name}`} onClick={() => onDelete(v)} data-testid={`vendor-delete-${v.id}`}><Trash2 /></Button>}</td>
+              </tr>
+            ))}
+            {vendors.length === 0 && <EmptyRow cols={5} text="No vendors yet — add one to attach it to expenses and bills." />}
+          </tbody>
+        </table>
+      </Panel>
     </div>
   );
 }

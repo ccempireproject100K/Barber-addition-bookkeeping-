@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Wallet, FileText, Package, ShoppingBag, ArrowLeftRight, BarChart3, Truck, Users, Settings as SettingsIcon,
-  LogOut, Menu, Sun, Moon, Calculator, ScanLine, ClipboardCheck, Barcode, Contact, Banknote, ScrollText, Scale, ReceiptText, FileCheck2,
+  LogOut, Menu, Sun, Moon, Calculator, ScanLine, ClipboardCheck, Barcode, Contact, Banknote, ScrollText, Scale, ReceiptText, FileCheck2, Clock3,
 } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { ApiError, apiGet } from "@/lib/api";
@@ -47,6 +47,7 @@ const SECTIONS: { title: string; items: NavDef[] }[] = [
   ] },
   { title: "Shop", items: [
     { to: "/team", label: "Team & commission", icon: Users, id: "team" },
+    { to: "/time", label: "Time tracking", icon: Clock3, id: "time", perm: "time:read" },
     { to: "/settings", label: "Settings", icon: SettingsIcon, id: "settings", perm: "settings:read" },
   ] },
 ];

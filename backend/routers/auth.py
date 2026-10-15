@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from lib.auth import (ROLE_PERMS, Principal, clear_session, get_principal, hash_password, principal_for_user, require,
                       set_session, verify_password, DEFAULT_SETTINGS)
@@ -37,7 +38,8 @@ def _me(p: Principal) -> Me:
               ai_enabled=bool(p.settings.get("ai_enabled")) and bool(os.environ.get("EMERGENT_LLM_KEY")),
               access="paid" if p.access != "demo" and any(p.entitlements.values()) else p.access,  # type: ignore[arg-type]
               entitlements=p.entitlements, currency=p.settings.get("currency", "USD"),
-              timezone=p.settings.get("timezone", "UTC"), locale=p.settings.get("locale", "en-US"))
+              timezone=p.settings.get("timezone", "UTC"), locale=p.settings.get("locale", "en-US"),
+              totp_enabled=p.totp_enabled)
 
 
 @router.post("/auth/signup", response_model=Me)
@@ -71,6 +73,11 @@ async def login(body: LoginIn, response: Response, request: Request):
     if not p:
         raise HTTPException(401, "Invalid email or password")
     await clear_login_failures(email)
+    if p.totp_enabled:
+        # Password OK, but 2FA is on: issue a short-lived challenge, no session yet.
+        from routers.totp import _challenge_token
+        await audit(p, "auth.login.password_ok", "user", p.user_id, {"ip": ip, "totp_pending": True})
+        return JSONResponse(status_code=202, content={"totp_required": True, "challenge": _challenge_token(user["id"])})
     set_session(response, user["id"], user.get("session_version", 0))
     await audit(p, "auth.login", "user", p.user_id, {"ip": ip})
     return _me(p)
@@ -162,6 +169,9 @@ async def google_login(body: GoogleSessionIn, response: Response):
     p = await principal_for_user(user)
     if not p:
         raise HTTPException(401, "Account unavailable")
+    if p.totp_enabled:
+        from routers.totp import _challenge_token
+        return JSONResponse(status_code=202, content={"totp_required": True, "challenge": _challenge_token(user["id"])})
     set_session(response, user["id"], user.get("session_version", 0))
     return _me(p)
 

@@ -30,6 +30,7 @@ class Me(InternationalSettings):
     ai_enabled: bool = False
     access: Literal["demo", "paid", "none"] = "none"
     entitlements: dict[str, bool] = {}
+    totp_enabled: bool = False
 
 
 class TeamMember(BaseModel):

@@ -7,7 +7,7 @@ import { businessToday, errMsg, fmtDate, fmtMoney } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
 import type { Estimate, InvoiceIn, InvoiceLineIn, Product } from "@/lib/types";
 import { can, useMe, useTeam } from "@/hooks/useMe";
-import { Field, NativeSelect, PageHeader, Panel, Pill } from "@/components/Common";
+import { Field, MagicLinkButton, NativeSelect, PageHeader, Panel, Pill } from "@/components/Common";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,7 @@ export default function Estimates() {
                 <Button size="icon-sm" variant="ghost" onClick={() => del.mutate(e.id)} data-testid={`estimate-delete-${e.number}`}><Trash2 /></Button>
               </div>
             )}
+            {e.status !== "converted" && <MagicLinkButton kind="estimate" id={e.id} testId={`estimate-magiclink-${e.number}`} />}
           </Panel>
         ))}
         {estimates.length === 0 && <p className="text-sm text-muted-foreground">No estimates yet. Create a quote to send a client.</p>}

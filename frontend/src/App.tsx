@@ -21,6 +21,8 @@ import Reports from "@/pages/Reports";
 import Procurement from "@/pages/Procurement";
 import Team from "@/pages/Team";
 import Time from "@/pages/Time";
+import Portal from "@/pages/Portal";
+import Payroll from "@/pages/Payroll";
 import Settings from "@/pages/Settings";
 import CashClosePage from "@/pages/CashClose";
 import AuditLog from "@/pages/AuditLog";
@@ -39,6 +41,7 @@ export default function App() {
         <Route path="/signup" element={<Auth mode="signup" />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/portal/v/:token" element={<Portal />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/money" element={<Money />} />
@@ -60,6 +63,7 @@ export default function App() {
           <Route path="/procurement" element={gated(<Procurement />)} />
           <Route path="/team" element={<Team />} />
           <Route path="/time" element={<Time />} />
+          <Route path="/payroll" element={<Payroll />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/cash-close" element={<CashClosePage />} />
           <Route path="/audit" element={<AuditLog />} />

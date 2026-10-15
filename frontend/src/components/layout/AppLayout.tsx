@@ -48,6 +48,7 @@ const SECTIONS: { title: string; items: NavDef[] }[] = [
   { title: "Shop", items: [
     { to: "/team", label: "Team & commission", icon: Users, id: "team" },
     { to: "/time", label: "Time tracking", icon: Clock3, id: "time", perm: "time:read" },
+    { to: "/payroll", label: "Payroll", icon: ReceiptText, id: "payroll", perm: "payroll:read" },
     { to: "/settings", label: "Settings", icon: SettingsIcon, id: "settings", perm: "settings:read" },
   ] },
 ];

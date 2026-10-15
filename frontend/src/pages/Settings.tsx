@@ -155,8 +155,102 @@ function BackupPanel({ admin }: { admin: boolean }) {
   );
 }
 
-function SessionsPanel() {
+function TwoFactorPanel() {
   const qc = useQueryClient();
+  const { data: me } = useMe();
+  const [secret, setSecret] = useState<string | null>(null);
+  const [otpauthUrl, setOtpauthUrl] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [confirmDisable, setConfirmDisable] = useState(false);
+
+  const start = async () => {
+    try {
+      const r = await apiPost<{ secret: string; otpauth_url: string }>("/auth/2fa/setup", {});
+      setSecret(r.secret); setOtpauthUrl(r.otpauth_url); setCode("");
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const enable = async () => {
+    try {
+      const r = await apiPost<{ backup_codes: string[] }>("/auth/2fa/enable", { code });
+      setBackupCodes(r.backup_codes); setSecret(null);
+      toast.success("Two-factor auth enabled");
+      void qc.invalidateQueries({ queryKey: ["me"] });
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const disable = async (pw: string) => {
+    try {
+      await apiPost("/auth/2fa/disable", { password: pw });
+      setConfirmDisable(false); setPassword("");
+      toast.success("Two-factor auth disabled");
+      void qc.invalidateQueries({ queryKey: ["me"] });
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const regen = async () => {
+    try {
+      const r = await apiPost<{ backup_codes: string[] }>("/auth/2fa/backup-codes/regenerate", { password });
+      setBackupCodes(r.backup_codes); setPassword("");
+      toast.success("New backup codes generated — old ones no longer work");
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+
+  return (
+    <Panel className="p-4 md:p-5" data-testid="settings-2fa-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Two-factor authentication</h3>
+          <p className="text-xs text-muted-foreground">Authenticator-app codes at sign-in, plus one-time backup codes.</p>
+        </div>
+        {me?.totp_enabled
+          ? <Pill tone="success" testId="2fa-status">Enabled</Pill>
+          : <Pill tone="neutral" testId="2fa-status">Off</Pill>}
+      </div>
+
+      {!me?.totp_enabled && !secret && (
+        <Button size="sm" className="mt-3" onClick={() => void start()} data-testid="2fa-start">Set up authenticator app</Button>
+      )}
+      {!me?.totp_enabled && secret && (
+        <div className="mt-3 space-y-2 rounded-lg bg-muted/50 p-3" data-testid="2fa-setup">
+          <p className="text-sm">Add this key to your authenticator app (Google Authenticator, 1Password, etc.):</p>
+          <code className="block select-all rounded bg-background p-2 font-mono text-sm tracking-widest" data-testid="2fa-secret">{secret}</code>
+          <p className="text-xs text-muted-foreground">Then enter the 6-digit code it shows:</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Code"><Input value={code} onChange={(e) => setCode(e.target.value)} className="w-36 font-mono text-center text-lg tracking-[0.2em]" inputMode="numeric" data-testid="2fa-enable-code" /></Field>
+            <Button size="sm" onClick={() => void enable()} disabled={code.trim().length < 6} data-testid="2fa-enable">Enable</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSecret(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+      {backupCodes && (
+        <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3" data-testid="2fa-backup-codes">
+          <p className="text-sm font-medium">Backup codes — save these now, each works once:</p>
+          <div className="mt-1 grid grid-cols-2 gap-1 font-mono text-sm">{backupCodes.map((c) => <span key={c}>{c}</span>)}</div>
+          <Button size="xs" variant="outline" className="mt-2" onClick={() => setBackupCodes(null)}>I've saved them</Button>
+        </div>
+      )}
+      {me?.totp_enabled && (
+        <div className="mt-3 space-y-2">
+          {!confirmDisable ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Password (for new backup codes)"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-44" data-testid="2fa-regen-password" /></Field>
+              <Button size="sm" variant="outline" onClick={() => void regen()} disabled={!password} data-testid="2fa-regen-codes">New backup codes</Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmDisable(true)} data-testid="2fa-disable-start">Disable 2FA</Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Confirm with password"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-44" data-testid="2fa-disable-password" /></Field>
+              <Button size="sm" variant="destructive" onClick={() => void disable(password)} data-testid="2fa-disable">Disable</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setConfirmDisable(false); setPassword(""); }}>Keep enabled</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function SessionsPanel() {  const qc = useQueryClient();
   const signOutAll = async () => {
     if (!window.confirm("Sign out on every device? You'll need to sign in again here.")) return;
     try { await apiPost("/auth/logout-all"); }
@@ -204,6 +298,7 @@ export default function Settings() {
     <div className="space-y-4">
       <PageHeader title="Settings" subtitle="Workspace and add-on configuration." />
       <BillingPanel admin={admin} />
+      <TwoFactorPanel />
       <SessionsPanel />
       <BackupPanel admin={admin} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(f); }}>

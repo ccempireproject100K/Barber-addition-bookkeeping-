@@ -13,6 +13,7 @@ export interface Me {
   permissions: string[];
   inventory_enabled: boolean;
   ai_enabled: boolean;
+  totp_enabled: boolean;
   access: "demo" | "paid" | "none";
   entitlements: Record<string, boolean>;
 }

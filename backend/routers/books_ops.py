@@ -91,16 +91,6 @@ async def overview(p: Principal = Depends(require("report:read"))):
 
 
 # ---------- Sales tax ----------
-@router.get("/tax-summary")
-async def tax_summary(start: str = "", end: str = "", p: Principal = Depends(require("report:read"))):
-    today = _today(p)
-    start, end = start or today[:8] + "01", end or today
-    period = await account_balances(p, start=start, end=end)
-    allb = await account_balances(p, end=end)
-    return {"start": start, "end": end, "collected": _f(-period.get("2100", 0)) if period.get("2100", 0) < 0 else 0.0,
-            "net_change": _f(-period.get("2100", 0)), "owed": _f(-allb.get("2100", 0))}
-
-
 @router.post("/tax/remit")
 async def tax_remit(body: PayoutIn, p: Principal = Depends(require("txn:adjust"))):
     d = body.date or _today(p)
@@ -114,12 +104,6 @@ async def tax_remit(body: PayoutIn, p: Principal = Depends(require("txn:adjust")
 
 
 # ---------- Tips payout ----------
-@router.get("/tips-summary")
-async def tips_summary(p: Principal = Depends(require("report:read"))):
-    allb = await account_balances(p, end=_today(p))
-    return {"owed": _f(-allb.get("2200", 0))}
-
-
 @router.post("/tips/payout")
 async def tips_payout(body: PayoutIn, p: Principal = Depends(require("txn:adjust"))):
     d = body.date or _today(p)

@@ -7,7 +7,7 @@ import { businessToday, errMsg, fmtDate, fmtDateTime, fmtMoney } from "@/lib/for
 import { queryClient } from "@/lib/queryClient";
 import type { Client, Invoice, InvoiceIn, InvoiceLineIn, OverdueInvoice, PayMethod, Product, RecurringInvoice, RecurringInvoiceLine, ReminderRecord } from "@/lib/types";
 import { can, useMe, useTeam } from "@/hooks/useMe";
-import { EmptyRow, Field, InvoiceBadge, NativeSelect, PageHeader, Panel, Pill } from "@/components/Common";
+import { EmptyRow, Field, InvoiceBadge, MagicLinkButton, NativeSelect, PageHeader, Panel, Pill } from "@/components/Common";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,7 @@ export default function Invoices() {
                 {i.amount_paid === 0 && i.status !== "void" && <Button size="xs" variant="ghost" onClick={() => act.mutate({ id: i.id, path: "status", body: { status: "void" } })} data-testid={`invoice-void-${i.number}`}>Void</Button>}
               </div>
             )}
+            {i.status !== "void" && <MagicLinkButton kind="invoice" id={i.id} testId={`invoice-magiclink-${i.number}`} />}
           </Panel>
         ))}
         {invoices.length === 0 && <p className="text-sm text-muted-foreground">No invoices yet.</p>}

@@ -239,7 +239,7 @@ export interface Dashboard {
 export interface WorkspaceSettings {
   currency: string; timezone: string; locale: string;
   name: string; inventory_enabled: boolean; low_stock_email: boolean; expiry_warning_days: number;
-  expense_category_retail: string; expense_category_supply: string; allow_negative_stock: boolean; ai_enabled: boolean; po_approval_limit: number; weekly_ai_email: boolean;
+  expense_category_retail: string; expense_category_supply: string; allow_negative_stock: boolean; ai_enabled: boolean; po_approval_limit: number; weekly_ai_email: boolean; edition: "general" | "service-shop";
 }
 
 // ---------- models/ai.py ----------

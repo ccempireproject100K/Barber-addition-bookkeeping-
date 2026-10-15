@@ -10,7 +10,7 @@ import { useMe } from "@/hooks/useMe";
 import { ApiError, apiGet } from "@/lib/api";
 import { configureFormats, errMsg } from "@/lib/format";
 import { endSession } from "@/lib/session";
-import type { Alerts, BarcodeLookup } from "@/lib/types";
+import type { Alerts, BarcodeLookup, WorkspaceSettings } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/Common";
@@ -20,6 +20,13 @@ import Scanner from "@/components/Scanner";
 import ProductDialog from "@/components/ProductDialog";
 import Assistant from "@/components/Assistant";
 import QuickAdd from "@/components/QuickAdd";
+
+/** Small badge under the workspace name when the service-shop edition is active. */
+function EditionBadge() {
+  const { data } = useQuery({ queryKey: ["settings-edition"], queryFn: () => apiGet<WorkspaceSettings>("/settings"), staleTime: 300_000 });
+  if (data?.edition !== "service-shop") return null;
+  return <div className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary" data-testid="edition-badge">Service shop edition</div>;
+}
 
 interface NavDef { to: string; label: string; icon: React.ComponentType<{ className?: string }>; id: string; inv?: boolean; badge?: boolean; approvals?: boolean; perm?: string }
 const SECTIONS: { title: string; items: NavDef[] }[] = [
@@ -144,6 +151,7 @@ export default function AppLayout() {
         <div className="rounded-lg border border-border bg-background/50 p-3">
           <div className="label-caps !text-[9px]">Workspace</div>
           <div data-testid="sidebar-tenant-name" className="mt-1 truncate text-sm font-medium">{me?.tenant_name ?? (isLoading ? "…" : "—")}</div>
+          <EditionBadge />
         </div>
       </div>
     </div>

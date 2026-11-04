@@ -112,7 +112,7 @@ export default function Invoices() {
               <Field label="Client" className="col-span-2"><Input required value={f.client_name} onChange={(e) => setF({ ...f, client_name: e.target.value })} data-testid="invoice-client-input" /></Field>
               <Field label="Date"><Input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} data-testid="invoice-date-input" /></Field>
               <Field label="Due date"><Input type="date" value={f.due_date ?? ""} onChange={(e) => setF({ ...f, due_date: e.target.value || null })} data-testid="invoice-due-input" /></Field>
-              <Field label="Barber" className="col-span-2">
+              <Field label="Staff member" className="col-span-2">
                 <NativeSelect value={f.barber_id ?? ""} onChange={(e) => setF({ ...f, barber_id: e.target.value || null })} data-testid="invoice-barber-select">
                   <option value="">—</option>{team.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </NativeSelect>

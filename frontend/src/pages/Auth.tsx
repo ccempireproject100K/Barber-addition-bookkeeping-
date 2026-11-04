@@ -46,10 +46,10 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
         <div className="absolute -left-32 top-1/3 size-[520px] rounded-full bg-blue-600/20 blur-[120px]" />
         <div className="relative flex items-center gap-2.5">
           <div className="grid size-9 place-items-center rounded-md bg-blue-600"><Boxes className="size-5" /></div>
-          <span className="font-heading text-lg font-semibold">Barber's Ledger</span>
+          <span className="font-heading text-lg font-semibold">Ledger</span>
         </div>
         <div className="relative max-w-lg">
-          <div className="label-caps !text-slate-400">Books + stock for barbershops</div>
+          <div className="label-caps !text-slate-400">Books + stock for small business</div>
           <h1 className="mt-4 text-5xl font-semibold leading-[1.05]">
             Every unit, <span className="text-blue-400">accounted for.</span>
           </h1>
@@ -76,7 +76,7 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
         <form onSubmit={submit} className="w-full max-w-sm animate-rise" data-testid={`${mode}-form`}>
           <div className="lg:hidden mb-8 flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground"><Boxes className="size-4" /></div>
-            <span className="font-heading font-semibold">Barber's Ledger</span>
+            <span className="font-heading font-semibold">Ledger</span>
           </div>
           <h2 className="text-3xl font-semibold">{mode === "login" ? "Sign in" : "Create your workspace"}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -118,7 +118,7 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
           </Button>
 
           <p className="mt-6 text-sm text-muted-foreground">
-            {mode === "login" ? "New to Barber's Ledger? " : "Already have a workspace? "}
+            {mode === "login" ? "New to Ledger? " : "Already have a workspace? "}
             <Link to={mode === "login" ? "/signup" : "/login"} className="text-primary hover:underline" data-testid={`${mode}-switch-link`}>
               {mode === "login" ? "Create a workspace" : "Sign in"}
             </Link>

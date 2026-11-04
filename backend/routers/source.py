@@ -29,9 +29,9 @@ def build_zip() -> bytes:
                     continue
                 if f.stat().st_size > 2_000_000:
                     continue
-                z.write(f, Path("barbers-ledger") / rel)
+                z.write(f, Path("ledger") / rel)
         if (ROOT / ".emergent" / "crons.yml").exists():  # schedule definition is useful; nothing secret in it
-            z.write(ROOT / ".emergent" / "crons.yml", "barbers-ledger/.emergent/crons.yml")
+            z.write(ROOT / ".emergent" / "crons.yml", "ledger/.emergent/crons.yml")
     return buf.getvalue()
 
 
@@ -39,4 +39,4 @@ def build_zip() -> bytes:
 async def download_source(p: Principal = Depends(require("settings:write"))):
     data = build_zip()
     return StreamingResponse(io.BytesIO(data), media_type="application/zip",
-                             headers={"Content-Disposition": 'attachment; filename="barbers-ledger-source.zip"'})
+                             headers={"Content-Disposition": 'attachment; filename="ledger-source.zip"'})

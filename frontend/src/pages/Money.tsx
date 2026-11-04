@@ -116,7 +116,7 @@ export default function Money() {
             <Field label="Category"><Input required value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} data-testid="txn-category-input" /></Field>
             <Field label="Amount ($)"><Input required type="number" step="0.01" min={0.01} value={f.amount || ""} onChange={(e) => setF({ ...f, amount: Number(e.target.value) })} className="font-mono" data-testid="txn-amount-input" /></Field>
             <Field label="Date"><Input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} data-testid="txn-date-input" /></Field>
-            <Field label="Barber">
+            <Field label="Staff member">
               <NativeSelect value={f.barber_id ?? ""} onChange={(e) => setF({ ...f, barber_id: e.target.value || null })} data-testid="txn-barber-select">
                 <option value="">—</option>{team.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </NativeSelect>
@@ -141,7 +141,7 @@ export default function Money() {
           <Table>
             <TableHeader><TableRow>
               <TableHead className="label-caps">Date</TableHead><TableHead className="label-caps">Description</TableHead>
-              <TableHead className="label-caps hidden md:table-cell">Category</TableHead><TableHead className="label-caps hidden md:table-cell">Barber</TableHead>
+              <TableHead className="label-caps hidden md:table-cell">Category</TableHead><TableHead className="label-caps hidden md:table-cell">Staff</TableHead>
               <TableHead className="label-caps text-right">Amount</TableHead><TableHead />
             </TableRow></TableHeader>
             <TableBody>

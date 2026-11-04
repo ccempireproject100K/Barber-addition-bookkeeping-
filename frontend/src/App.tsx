@@ -2,7 +2,6 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import AuthCallback from "@/pages/AuthCallback";
 import Clients from "@/pages/Clients";
 import PaymentResult from "@/pages/PaymentResult";
-import Play from "@/pages/Play";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout, { InventoryGate } from "@/components/layout/AppLayout";
 import Auth from "@/pages/Auth";
@@ -37,7 +36,6 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/signup" element={<Auth mode="signup" />} />
-        <Route path="/play/:tenantId" element={<Play />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<AppLayout />}>

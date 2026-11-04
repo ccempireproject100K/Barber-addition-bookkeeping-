@@ -256,7 +256,7 @@ export interface SupplierScorecard {
   open_orders: number; grade: string;
 }
 
-// ---------- routers/clients.py, payments.py, game.py ----------
+// ---------- routers/clients.py, payments.py ----------
 export interface ClientIn { name: string; phone: string; email: string; notes: string }
 export interface Client extends ClientIn { id: string; total_spent: number; visits: number; last_visit: string | null; created_at: string }
 export interface ClientPurchase { movement_id: string; product_id: string; product_name: string; quantity: number; unit_price: number; date: string; barber_name: string | null }
@@ -266,10 +266,6 @@ export interface DiscountCheck { code: string; pct: number; valid: boolean; reas
 export interface CardCheckoutIn extends CheckoutIn { origin_url: string }
 export interface CardCheckoutOut { checkout_url: string; session_id: string }
 export interface PaymentStatus { currency: string; session_id: string; status: string; payment_status: string; fulfilled: boolean; error: string; total: number }
-export interface ScoreIn { name: string; score: number; duration_ms: number }
-export interface ScoreRow { name: string; score: number }
-export interface GameInfo { shop: string; week: string; target: number; reward_pct: number; top_reward_pct: number; leaderboard: ScoreRow[] }
-export interface ScoreOut { rank: number; best: boolean; code: string | null; pct: number; message: string }
 
 // ---------- models/ledger.py ----------
 export interface BillingStatus {

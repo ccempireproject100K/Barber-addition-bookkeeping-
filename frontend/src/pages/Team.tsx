@@ -11,7 +11,7 @@ import { Field, NativeSelect, PageHeader, Panel, Pill } from "@/components/Commo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const ROLE_LABEL: Record<Role, string> = { admin: "Owner", staff: "Barber", accountant: "Accountant (read-only)", bookkeeper: "Bookkeeper (can correct)" };
+const ROLE_LABEL: Record<Role, string> = { admin: "Owner", staff: "Staff member", accountant: "Accountant (read-only)", bookkeeper: "Bookkeeper (can correct)" };
 const ROLE_OPTIONS = (Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>);
 const blank: TeamMemberCreate = { name: "", email: "", password: "", role: "staff", commission_rate: 10 };
 
@@ -35,7 +35,7 @@ export default function Team() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Team & commission" subtitle="Barbers can sell, restock and use supplies. Only owners adjust stock, change prices or see reports." />
+      <PageHeader title="Team & commission" subtitle="Staff can sell, restock and use supplies. Only owners adjust stock, change prices or see reports." />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {team.map((m) => (
           <Panel key={m.id} className="p-4" data-testid={`team-card-${m.id}`}>
@@ -67,7 +67,7 @@ export default function Team() {
       </div>
       {admin && (
         <Panel className="p-4">
-          <div className="mb-3 text-sm font-semibold">Add a barber</div>
+          <div className="mb-3 text-sm font-semibold">Add a team member</div>
           <form className="grid grid-cols-2 gap-3 md:grid-cols-6 md:items-end" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
             <Field label="Name"><Input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} data-testid="team-name-input" /></Field>
             <Field label="Email"><Input required type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} data-testid="team-email-input" /></Field>

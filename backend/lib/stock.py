@@ -54,7 +54,7 @@ async def barber_name(p: Principal, barber_id: str | None) -> str | None:
         return None
     u = await db.users.find_one({"id": barber_id, "tenant_id": p.tenant_id}, {"_id": 0, "name": 1})
     if not u:
-        raise HTTPException(400, "Barber not found in this workspace")
+        raise HTTPException(400, "Staff member not found in this workspace")
     return u["name"]
 
 

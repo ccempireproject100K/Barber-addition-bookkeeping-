@@ -24,6 +24,7 @@ DEFAULT_SETTINGS = {
     "ai_enabled": False,
     "po_approval_limit": 0,
     "weekly_ai_email": True,
+    "edition": "general",
 }
 
 STAFF_PERMS = {

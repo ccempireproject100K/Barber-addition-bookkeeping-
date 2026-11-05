@@ -103,7 +103,6 @@ function BillingPanel({ admin }: { admin: boolean }) {
   );
 }
 
-=======
 function BackupPanel({ admin }: { admin: boolean }) {
   const qc = useQueryClient();
   const { data: backups = [] } = useQuery({ queryKey: ["backups"], queryFn: () => apiGet<BackupMeta[]>("/backups"), enabled: admin });
@@ -211,6 +210,22 @@ export default function Settings() {
         <Panel className="p-4 md:p-5">
           <InternationalFields value={f} disabled={!admin} currencyLocked onChange={(key, value) => setF({ ...f, [key]: value })} />
           <Field label="Shop name"><Input disabled={!admin} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="max-w-sm" data-testid="settings-name-input" /></Field>
+        </Panel>
+        <Panel className="p-4 md:p-5" data-testid="settings-edition-panel">
+          <h3 className="text-base font-semibold">Edition</h3>
+          <p className="text-xs text-muted-foreground">Packaging for your kind of business. Same books underneath — the service-shop edition adds a setup checklist and shop-first wording.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {(["general", "service-shop"] as const).map((ed) => (
+              <button key={ed} type="button" disabled={!admin} onClick={() => setF({ ...f, edition: ed })}
+                data-testid={`settings-edition-${ed}`}
+                className={`rounded-lg border p-3 text-left ${f.edition === ed ? "border-primary ring-1 ring-primary" : "border-border"} ${admin ? "hover:bg-muted/50" : "opacity-70"}`}>
+                <div className="font-medium">{ed === "general" ? "General business" : "Service shop"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {ed === "general" ? "The standard books: invoices, bills, inventory, reports." : "Barbershops, salons, spas — booth rent, tips, and QuickSell front and center, plus a guided setup checklist."}
+                </div>
+              </button>
+            ))}
+          </div>
         </Panel>
         <Panel className="p-4 md:p-5" data-testid="settings-inventory-panel">
           <div className="flex items-start justify-between gap-4">

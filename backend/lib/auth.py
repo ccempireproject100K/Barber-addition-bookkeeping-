@@ -58,6 +58,7 @@ class Principal(BaseModel):
     settings: dict
     access: str = "none"
     entitlements: dict = {}
+    totp_enabled: bool = False
 
 
 def hash_password(pw: str) -> str:
@@ -107,7 +108,7 @@ async def principal_for_user(user: dict) -> Principal | None:
     settings["ai_enabled"] = bool(settings.get("ai_enabled")) and ent["ai"]
     return Principal(user_id=user["id"], tenant_id=user["tenant_id"], tenant_name=tenant["name"], role=user["role"],
                      name=user["name"], email=user["email"], settings=settings, access=tenant.get("access", "none"),
-                     entitlements=ent)
+                     entitlements=ent, totp_enabled=bool(user.get("totp_enabled")))
 
 
 async def get_principal(request: Request) -> Principal:

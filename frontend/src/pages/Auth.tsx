@@ -22,13 +22,29 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState("");
   const set = (k: keyof SignupIn) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
 
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+
   const m = useMutation({
     mutationFn: () =>
       mode === "login"
-        ? apiPost<Me>("/auth/login", { email: form.email, password: form.password })
+        ? apiPost<Me | { totp_required: boolean; challenge: string }>("/auth/login", { email: form.email, password: form.password })
         : apiPost<Me>("/auth/signup", form),
-    onSuccess: () => { beginSession(); nav("/", { replace: true }); },
+    onSuccess: (r) => {
+      if (mode === "login" && (r as { totp_required?: boolean }).totp_required) {
+        setChallenge((r as { challenge: string }).challenge);
+        return;
+      }
+      beginSession(); nav("/", { replace: true });
+    },
     onError: (e) => setError(errMsg(e)),
+  });
+
+  const verify = useMutation({
+    mutationFn: () => apiPost<{ ok: boolean }>("/auth/2fa/verify", { challenge, code }),
+    onSuccess: () => { beginSession(); nav("/", { replace: true }); },
+    onError: (e) => setCodeError(errMsg(e)),
   });
 
   const googleSignIn = () => {
@@ -78,11 +94,33 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
             <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground"><Boxes className="size-4" /></div>
             <span className="font-heading font-semibold">Ledger</span>
           </div>
-          <h2 className="text-3xl font-semibold">{mode === "login" ? "Sign in" : "Create your workspace"}</h2>
+          <h2 className="text-3xl font-semibold">{challenge ? "Two-factor code" : mode === "login" ? "Sign in" : "Create your workspace"}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "login" ? "Welcome back. Enter your credentials." : "Your own isolated shop workspace in seconds."}
+            {challenge
+              ? "Enter the 6-digit code from your authenticator app."
+              : mode === "login" ? "Welcome back. Enter your credentials." : "Your own isolated shop workspace in seconds."}
           </p>
 
+          {challenge ? (
+            <div className="mt-8 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="totp-code">Authenticator code</Label>
+                <Input id="totp-code" inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={8}
+                  value={code} onChange={(e) => setCode(e.target.value)} data-testid="login-totp-input" placeholder="123456"
+                  className="text-center text-2xl tracking-[0.3em] font-mono" />
+              </div>
+              {codeError && <p data-testid="login-totp-error" role="alert" className="text-sm text-destructive">{codeError}</p>}
+              <Button type="button" className="w-full h-10" disabled={verify.isPending || code.trim().length < 6}
+                onClick={() => { setCodeError(""); verify.mutate(); }} data-testid="login-totp-submit">
+                {verify.isPending ? <Loader2 className="animate-spin" /> : "Verify & sign in"}
+              </Button>
+              <button type="button" className="text-xs text-muted-foreground hover:underline"
+                onClick={() => { setChallenge(null); setCode(""); setCodeError(""); }}>
+                ← Back to password
+              </button>
+            </div>
+          ) : (
+          <>
           <div className="mt-8 space-y-4">
             {mode === "signup" && (
               <>
@@ -127,6 +165,8 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
             <div className="mt-8 rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground font-mono" data-testid="demo-credentials">
               demo workspace only · demo@example.invalid / Owner123! — never use demo passwords for real data
             </div>
+          )}
+          </>
           )}
         </form>
       </section>

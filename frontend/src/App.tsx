@@ -24,6 +24,7 @@ import Time from "@/pages/Time";
 import Portal from "@/pages/Portal";
 import Payroll from "@/pages/Payroll";
 import Budget from "@/pages/Budget";
+import Tax from "@/pages/Tax";
 import Settings from "@/pages/Settings";
 import CashClosePage from "@/pages/CashClose";
 import AuditLog from "@/pages/AuditLog";
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/time" element={<Time />} />
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/budget" element={<Budget />} />
+          <Route path="/tax" element={<Tax />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/cash-close" element={<CashClosePage />} />
           <Route path="/audit" element={<AuditLog />} />

@@ -256,3 +256,160 @@ async def weekly_email_now(request: Request, p: Principal = Depends(require_ai))
     """Send the Monday email now (owner 'Send now' in Settings)."""
     from routers.po_links import public_base
     return OutboxEmail(**await send_weekly_email(p, public_base(request)))
+
+
+# ---------- Copilot actions (approval-gated) ----------
+# The AI proposes concrete bookkeeping actions; NOTHING executes until the
+# owner explicitly approves it in the UI. Every execution re-checks the
+# acting permission for its kind.
+
+from lib.auth import ROLE_PERMS  # noqa: E402
+
+ACTION_KINDS = ("chase_invoice", "pay_bill")
+ACTION_PERMS = {"chase_invoice": "invoice:write", "pay_bill": "txn:write"}
+
+
+def _action_doc(d: dict) -> dict:
+    return {k: d.get(k) for k in ("id", "kind", "title", "detail", "payload", "status",
+                                 "created_at", "decided_at", "decided_by", "result")}
+
+
+@router.post("/actions/propose")
+async def propose_actions(p: Principal = Depends(require_ai)):
+    """Ask the model what to do, validate every proposal, save as proposed."""
+    from routers.reminders import overdue_invoices
+    overdue = await overdue_invoices(p)
+    unpaid_bills = await Scoped("bills", p).find(
+        {"status": {"$in": ["unpaid", "partial"]}}, sort=[("due_date", 1)])
+    cash = ""
+    try:
+        from routers.money import cash_position
+        cash = f"${(await cash_position(p)):.2f}"
+    except Exception:
+        pass
+    prompt = (
+        "You are the copilot inside \"Ledger\". Propose concrete bookkeeping actions the owner can approve with one tap. "
+        "Return ONLY JSON: {\"actions\": [{\"kind\": \"chase_invoice\" | \"pay_bill\", \"title\": \"<=60 chars\", "
+        "\"detail\": \"<=160 chars\", \"payload\": {...}}]}. "
+        "chase_invoice payload: {\"invoice_id\": \"...\"} — only for invoices in OVERDUE below, oldest first. "
+        "pay_bill payload: {\"bill_id\": \"...\", \"amount\": number, \"date\": \"YYYY-MM-DD\", \"method\": \"bank\"} — "
+        "only for bills in UNPAID below; amount must not exceed the balance. "
+        "At most 5 actions, most valuable first. If nothing is worth doing, return {\"actions\": []}.\n"
+        f"OVERDUE: {json.dumps([{'id': o.id, 'number': o.number, 'client': o.client_name, 'days_overdue': o.days_overdue, 'balance_due': o.balance_due} for o in overdue], default=str)}\n"
+        f"UNPAID BILLS: {json.dumps([{'id': b['id'], 'vendor': b.get('vendor_name'), 'balance': b.get('balance'), 'due_date': b.get('due_date')} for b in unpaid_bills], default=str)}\n"
+        f"CASH TODAY: {cash}")
+    try:
+        raw = await _complete(_chat(SYSTEM + json.dumps({"today": today_iso(p.settings.get("timezone"))}, default=str),
+                                    f"copilot-{p.tenant_id}-{uuid.uuid4()}"), prompt)
+        data = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
+    except Exception as exc:
+        logger.error("AI copilot propose failed: %s", exc)
+        raise HTTPException(502, "The AI couldn't propose actions — try again in a minute")
+    out = []
+    for a in (data.get("actions") or [])[:5]:
+        kind = str(a.get("kind") or "")
+        if kind not in ACTION_KINDS:
+            continue
+        payload = a.get("payload") or {}
+        if not _validate_proposal(p, kind, payload, overdue, unpaid_bills):
+            continue
+        doc = {"id": str(uuid.uuid4()), "tenant_id": p.tenant_id, "user_id": p.user_id, "kind": kind,
+               "title": str(a.get("title", ""))[:80], "detail": str(a.get("detail", ""))[:300],
+               "payload": payload, "status": "proposed", "created_at": now_iso(),
+               "decided_at": None, "decided_by": None, "result": None}
+        await db.ai_actions.insert_one(dict(doc))
+        out.append(_action_doc(doc))
+    return out
+
+
+def _validate_proposal(p: Principal, kind: str, payload: dict, overdue, unpaid_bills) -> bool:
+    try:
+        if kind == "chase_invoice":
+            return any(o.id == str(payload.get("invoice_id")) for o in overdue)
+        if kind == "pay_bill":
+            b = next((x for x in unpaid_bills if x["id"] == str(payload.get("bill_id"))), None)
+            if not b:
+                return False
+            amt = float(payload.get("amount") or 0)
+            return 0 < amt <= float(b.get("balance") or 0) + 0.005
+    except (ValueError, TypeError, KeyError):
+        return False
+    return False
+
+
+@router.get("/actions")
+async def list_actions(p: Principal = Depends(require_ai)):
+    docs = await db.ai_actions.find({"tenant_id": p.tenant_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return [_action_doc(d) for d in docs]
+
+
+@router.post("/actions/{action_id}/reject")
+async def reject_action(action_id: str, p: Principal = Depends(require_ai)):
+    doc = await db.ai_actions.find_one({"tenant_id": p.tenant_id, "id": action_id})
+    if not doc:
+        raise HTTPException(404, "Action not found")
+    if doc["status"] != "proposed":
+        raise HTTPException(409, "Action already decided")
+    await db.ai_actions.update_one({"tenant_id": p.tenant_id, "id": action_id},
+                                   {"$set": {"status": "rejected", "decided_at": now_iso(), "decided_by": p.name}})
+    doc.update(status="rejected", decided_at=now_iso(), decided_by=p.name)
+    return _action_doc(doc)
+
+
+@router.post("/actions/{action_id}/approve")
+async def approve_action(action_id: str, p: Principal = Depends(require_ai)):
+    """Execute a proposed action. The acting permission is re-checked here —
+    proposing never implies the right to execute."""
+    doc = await db.ai_actions.find_one({"tenant_id": p.tenant_id, "id": action_id})
+    if not doc:
+        raise HTTPException(404, "Action not found")
+    if doc["status"] != "proposed":
+        raise HTTPException(409, "Action already decided")
+    need = ACTION_PERMS.get(doc["kind"], "")
+    if need not in ROLE_PERMS.get(p.role, set()):
+        raise HTTPException(403, "You don't have permission to execute this action")
+    try:
+        if doc["kind"] == "chase_invoice":
+            result = await _exec_chase_invoice(p, doc["payload"])
+        elif doc["kind"] == "pay_bill":
+            result = await _exec_pay_bill(p, doc["payload"])
+        else:
+            raise HTTPException(400, "Unknown action kind")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("AI copilot execute failed: %s", exc)
+        raise HTTPException(502, "The action failed to execute — nothing was changed")
+    await db.ai_actions.update_one(
+        {"tenant_id": p.tenant_id, "id": action_id},
+        {"$set": {"status": "executed", "decided_at": now_iso(), "decided_by": p.name, "result": result}})
+    await audit(p, "ai.action.execute", "ai_action", action_id, {"kind": doc["kind"], "result": result})
+    doc.update(status="executed", decided_at=now_iso(), decided_by=p.name, result=result)
+    return _action_doc(doc)
+
+
+async def _exec_chase_invoice(p: Principal, payload: dict) -> str:
+    from routers.reminders import ReminderSendIn, send_reminder
+    inv = await Scoped("invoices", p).find_one({"id": str(payload.get("invoice_id"))})
+    if not inv or inv.get("status") != "sent" or float(inv.get("balance_due") or 0) <= 0:
+        raise HTTPException(409, "Invoice is no longer overdue")
+    client = await Scoped("clients", p).find_one({"name": inv.get("client_name")})
+    email = (client or {}).get("email", "").strip()
+    if not email:
+        raise HTTPException(400, f"No email on file for {inv.get('client_name')} — add one on the Clients page first")
+    rec = await send_reminder(ReminderSendIn(invoice_id=inv["id"], to_email=email, subject="", message=""), p)
+    return f"Reminder sent to {email} for invoice {inv.get('number')} (${float(inv.get('balance_due') or 0):.2f})"
+
+
+async def _exec_pay_bill(p: Principal, payload: dict) -> str:
+    from routers.bills import BillPayIn, pay_bill
+    bill = await Scoped("bills", p).find_one({"id": str(payload.get("bill_id"))})
+    if not bill or bill.get("status") == "paid":
+        raise HTTPException(409, "Bill is already paid")
+    amt = float(payload.get("amount") or 0)
+    if amt <= 0 or amt > float(bill.get("balance") or 0) + 0.005:
+        raise HTTPException(400, "Payment amount is no longer valid for this bill")
+    d = str(payload.get("date") or "")
+    method = str(payload.get("method") or "bank")
+    await pay_bill(bill["id"], BillPayIn(amount=amt, method=method, date=d), p)
+    return f"Paid ${amt:.2f} to {bill.get('vendor_name') or 'vendor'}" + (f" (dated {d})" if d else "")

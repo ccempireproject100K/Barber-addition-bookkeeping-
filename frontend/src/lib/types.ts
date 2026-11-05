@@ -333,3 +333,4 @@ export interface ReceiptScan { vendor: string; date: string; amount: number; tax
 
 export type EstimateStatus = "draft" | "sent" | "accepted" | "declined" | "converted";
 export interface Estimate { id: string; number: string; client_name: string; date: string; valid_until: string | null; status: EstimateStatus; lines: InvoiceLine[]; subtotal: number; discount_amount: number; tax_rate: number; tax_amount: number; tip_amount: number; total: number; barber_id: string | null; barber_name: string | null; notes: string; converted_invoice_id: string | null; converted_invoice_number: string | null; created_at: string }
+export interface CopilotAction { id: string; kind: string; title: string; detail: string; payload: Record<string, unknown>; status: "proposed" | "approved" | "rejected" | "executed"; created_at: string; decided_at: string | null; decided_by: string | null; result: string | null }

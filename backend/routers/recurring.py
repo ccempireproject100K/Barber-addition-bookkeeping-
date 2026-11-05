@@ -75,7 +75,8 @@ async def run_recurring_now(rid: str, p: Principal = Depends(require("txn:write"
 
 @router.post("/cron/recurring")
 async def cron_recurring(authorization: str | None = Header(default=None)):
-    """Platform cron: post every active recurring expense whose day has arrived and that hasn't run this month."""
+    """Platform cron: post every active recurring expense whose day has arrived and that hasn't run this month,
+    and create draft invoices from due recurring-invoice templates."""
     secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
     if not secret or authorization != f"Bearer {secret}":
         raise HTTPException(401, "Unauthorized")
@@ -92,4 +93,6 @@ async def cron_recurring(authorization: str | None = Header(default=None)):
             posted += 1
         except Exception:
             continue
+    from routers.recurring_invoices import post_due_templates
+    posted += await post_due_templates()
     return {"status": "ok", "posted": posted}

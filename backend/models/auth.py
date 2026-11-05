@@ -38,6 +38,7 @@ class TeamMember(BaseModel):
     email: str
     role: Role
     commission_rate: float = 0
+    booth_rent: float = 0
     created_at: str
 
 
@@ -47,11 +48,13 @@ class TeamMemberCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     role: Role = "staff"
     commission_rate: float = Field(default=0, ge=0, le=100)
+    booth_rent: float = Field(default=0, ge=0)
 
 
 class TeamMemberUpdate(BaseModel):
     commission_rate: float = Field(ge=0, le=100)
     role: Role
+    booth_rent: float = Field(default=0, ge=0)
 
 
 class GoogleSessionIn(BaseModel):

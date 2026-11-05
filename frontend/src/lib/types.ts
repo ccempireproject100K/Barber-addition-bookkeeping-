@@ -22,8 +22,8 @@ export interface OkOut { ok: boolean; message: string }
 export interface SignupIn { currency?: string; timezone?: string; locale?: string; company_name: string; name: string; email: string; password: string }
 export interface LoginIn { email: string; password: string }
 export interface GoogleSessionIn { session_id: string }
-export interface TeamMember { id: string; name: string; email: string; role: Role; commission_rate: number; created_at: string }
-export interface TeamMemberCreate { name: string; email: string; password: string; role: Role; commission_rate: number }
+export interface TeamMember { id: string; name: string; email: string; role: Role; commission_rate: number; booth_rent: number; created_at: string }
+export interface TeamMemberCreate { name: string; email: string; password: string; role: Role; commission_rate: number; booth_rent: number }
 export interface TeamMemberUpdate { commission_rate: number; role: Role }
 
 // ---------- models/inventory.py ----------
@@ -263,6 +263,13 @@ export interface ClientPurchase { movement_id: string; product_id: string; produ
 export interface Suggestion { product_id: string; name: string; sell_price: number; in_stock: boolean; kind: "rebuy" | "pairs" | "popular"; reason: string }
 export interface ClientProfile { client: Client; purchases: ClientPurchase[]; favorites: string[]; suggestions: Suggestion[] }
 export interface DiscountCheck { code: string; pct: number; valid: boolean; reason: string }
+export interface RecurringInvoiceLine { description: string; quantity: number; unit_price: number; kind: "service" | "product"; product_id: string | null }
+export interface RecurringInvoiceIn { name: string; client_name: string; lines: RecurringInvoiceLine[]; discount_amount: number; tax_rate: number; tip_amount: number; day_of_month: number; active: boolean; notes: string }
+export interface RecurringInvoice extends RecurringInvoiceIn { id: string; last_run: string | null; created_at: string }
+export interface OverdueInvoice { id: string; number: string; client_name: string; due_date: string | null; days_overdue: number; balance_due: number; total: number }
+export interface ReminderRecord { id: string; invoice_id: string; number: string; client_name: string; to_email: string; subject: string; message: string; status: string; error: string; sent_at: string; sent_by: string }
+export interface PayoutRow { id: string; name: string; role: string; retail_sales: number; commission_rate: number; commission: number; booth_rent: number; net_payout: number }
+export interface BackupMeta { id: string; created_at: string; created_by: string; size_bytes: number; collections: string[]; documents: number }
 export interface CardCheckoutIn extends CheckoutIn { origin_url: string }
 export interface CardCheckoutOut { checkout_url: string; session_id: string }
 export interface PaymentStatus { currency: string; session_id: string; status: string; payment_status: string; fulfilled: boolean; error: string; total: number }

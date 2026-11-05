@@ -7,7 +7,7 @@ import { CreditCard, LogOut, Mail, Package } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg, fmtDateTime } from "@/lib/format";
 import { invalidateInventory } from "@/lib/invalidate";
-import type { BillingCheckoutIn, BillingCheckoutOut, BillingStatus, BillingSyncIn, OutboxEmail, WorkspaceSettings } from "@/lib/types";
+import type { BackupMeta, BillingCheckoutIn, BillingCheckoutOut, BillingStatus, BillingSyncIn, OutboxEmail, WorkspaceSettings } from "@/lib/types";
 import { can, useMe } from "@/hooks/useMe";
 import { Field, PageHeader, Panel, Pill } from "@/components/Common";
 import { Button } from "@/components/ui/button";
@@ -103,6 +103,59 @@ function BillingPanel({ admin }: { admin: boolean }) {
   );
 }
 
+=======
+function BackupPanel({ admin }: { admin: boolean }) {
+  const qc = useQueryClient();
+  const { data: backups = [] } = useQuery({ queryKey: ["backups"], queryFn: () => apiGet<BackupMeta[]>("/backups"), enabled: admin });
+  const [busy, setBusy] = useState(false);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["backups"] });
+  const create = async () => {
+    setBusy(true);
+    try { const b = await apiPost<BackupMeta>("/backup"); toast.success(`Backup saved — ${b.documents} records`); refresh(); }
+    catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+  const restore = async (b: BackupMeta) => {
+    if (!window.confirm(`Restore the backup from ${fmtDateTime(b.created_at)}? ALL current workspace data will be replaced with the backup. This can't be undone.`)) return;
+    if (!window.confirm("Really restore? Type of confirmation #2: click OK to replace all data.")) return;
+    try { const r = await apiPost<{ restored_documents: number }>("/backup/" + b.id + "/restore"); toast.success(`Restored ${r.restored_documents} records`); invalidateInventory(); }
+    catch (e) { toast.error(errMsg(e)); }
+  };
+  if (!admin) return null;
+  const kb = (n: number) => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+  return (
+    <Panel className="p-4 md:p-5" data-testid="settings-backup-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Backup & restore</h3>
+          <p className="text-xs text-muted-foreground">Snapshots of every record in this workspace — clients, invoices, ledger, inventory and settings. Restoring replaces current data.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => void create()} disabled={busy} data-testid="backup-create-button">{busy ? "Backing up…" : "Create backup"}</Button>
+      </div>
+      {backups.length > 0 && (
+        <table className="mt-3 w-full text-sm" data-testid="backups-table">
+          <thead><tr className="border-b border-border text-left text-muted-foreground"><th className="px-2 py-2 font-medium">Created</th><th className="px-2 py-2 font-medium">By</th><th className="px-2 py-2 text-right font-medium">Records</th><th className="px-2 py-2 text-right font-medium">Size</th><th className="px-2 py-2"></th></tr></thead>
+          <tbody>
+            {backups.map((b) => (
+              <tr key={b.id} className="border-b border-border last:border-0" data-testid={`backup-row-${b.id}`}>
+                <td className="px-2 py-2 text-xs">{fmtDateTime(b.created_at)}</td>
+                <td className="px-2 py-2">{b.created_by}</td>
+                <td className="px-2 py-2 text-right font-mono">{b.documents}</td>
+                <td className="px-2 py-2 text-right font-mono">{kb(b.size_bytes)}</td>
+                <td className="px-2 py-2 text-right">
+                  <span className="flex justify-end gap-1">
+                    <a href={`/api/backup/${b.id}/download`} data-testid={`backup-download-${b.id}`}><Button size="xs" variant="outline" tabIndex={-1}>Download</Button></a>
+                    <Button size="xs" variant="destructive" onClick={() => void restore(b)} data-testid={`backup-restore-${b.id}`}>Restore</Button>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
+  );
+}
+
 function SessionsPanel() {
   const qc = useQueryClient();
   const signOutAll = async () => {
@@ -153,6 +206,7 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Workspace and add-on configuration." />
       <BillingPanel admin={admin} />
       <SessionsPanel />
+      <BackupPanel admin={admin} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(f); }}>
         <Panel className="p-4 md:p-5">
           <InternationalFields value={f} disabled={!admin} currencyLocked onChange={(key, value) => setF({ ...f, [key]: value })} />

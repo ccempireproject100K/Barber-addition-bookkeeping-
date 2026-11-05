@@ -78,6 +78,14 @@ async def get_invoice(id: str, p: Principal = Depends(require("invoice:read"))):
 
 @router.post("/invoices", response_model=Invoice)
 async def create_invoice(body: InvoiceIn, p: Principal = Depends(require("invoice:write"))):
+    doc = await build_invoice_doc(p, body)
+    await audit(p, "invoice.create", "invoice", doc["id"], {"number": doc["number"], "total": doc["total"]})
+    return Invoice(**_strip(await Scoped("invoices", p).insert(doc)))
+
+
+async def build_invoice_doc(p: Principal, body: InvoiceIn) -> dict:
+    """Build (but don't insert) a draft invoice document. Shared by the create endpoint
+    and recurring-invoice drafts so both go through identical validation and numbering."""
     lines = []
     for l in body.lines:
         d = l.model_dump()
@@ -99,8 +107,7 @@ async def create_invoice(body: InvoiceIn, p: Principal = Depends(require("invoic
            "date": body.date, "due_date": body.due_date, "status": "draft", "lines": lines,
            "barber_id": body.barber_id, "barber_name": await barber_name(p, body.barber_id), "notes": body.notes,
            "amount_paid": 0, "payments": [], "issued_at": None, "paid_at": None, "created_at": now_iso(), **amt}
-    await audit(p, "invoice.create", "invoice", doc["id"], {"number": doc["number"], "total": doc["total"]})
-    return Invoice(**_strip(await Scoped("invoices", p).insert(doc)))
+    return doc
 
 
 async def _issue_invoice(p: Principal, inv: dict) -> dict:

@@ -20,6 +20,7 @@ import Labels from "@/pages/Labels";
 import Reports from "@/pages/Reports";
 import Procurement from "@/pages/Procurement";
 import Team from "@/pages/Team";
+import Time from "@/pages/Time";
 import Settings from "@/pages/Settings";
 import CashClosePage from "@/pages/CashClose";
 import AuditLog from "@/pages/AuditLog";
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/inventory/reports" element={gated(<Reports />)} />
           <Route path="/procurement" element={gated(<Procurement />)} />
           <Route path="/team" element={<Team />} />
+          <Route path="/time" element={<Time />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/cash-close" element={<CashClosePage />} />
           <Route path="/audit" element={<AuditLog />} />
